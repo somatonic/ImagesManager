@@ -33,14 +33,25 @@ Along with this module, you can also install the `PageListImageLabel` module to 
 5. Create the root page with the `image-root` under the home page as "/images/"
 6. Done.
 
+The structure of the image repository looks like this
+
+```
+/images/
+  /cagetory1/
+     /imagesxy/
+  /category2/
+     /image2/
+     /image3/
+```
+
 Now you can use the ImagesManager to add categories and images. But you can also still use the page tree to add new stuff as usual.
 
 
 ### How to install the module:
 
 - Download the contents of this repository and put the folder renamed as "ImagesManager" into your site/modules/ folder
-- Login to processwire and got to Modules page and click "Check for new modules". You should see a note that the new module were found. Install it.
-- A new admin page "ImagesManager" should appear
+- Login to processwire and got to Modules page and click "Check for new modules". You should see a note that the two new module were found. Install the "ImagesManager" module.
+- A new admin page "ImagesManager" should appear in the top menu.
 - You may configure the option on the module screen to suit your neeeds.
 
 

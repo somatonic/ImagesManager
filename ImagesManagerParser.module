@@ -1,9 +1,7 @@
 <?php
 
 /**
- * ProcessWire Module Template
- *
- * Demonstrates the Module interface and how to add hooks.
+ * Images Parser Module for Images Manager
  *
  * ProcessWire 2.x
  * Copyright (C) 2010 by Ryan Cramer
