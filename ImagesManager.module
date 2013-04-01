@@ -404,8 +404,8 @@ _END;
 		$field->maxHeight = 1280;
 		$field->destinationPath = $this->upload_path;
 		$field->extensions = "jpg jpeg gif png";
-		$field->maxFiles = 20;
-		$field->maxFilesize = 4*1024*1024;
+		$field->maxFiles = 50;
+		$field->maxFilesize = 32*1024*1024;
         $form->append($field);
 
 		$field = $this->modules->get("InputfieldSubmit");
