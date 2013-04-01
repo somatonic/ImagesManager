@@ -328,7 +328,7 @@ _END;
 
 			if($resid) {
 				$search_url = $this->config->urls->admin . "page/search/";
-				$sOutput .= ' <a href=\"'.$search_url.'?field='.$this->options['imagesFields'].'&operator=7&q=:'.$p->id.'&show_options=1&submit=Search&sort=relevance&display=title,path\">IDs ('.$resid.')</a>';
+				$sOutput .= ' <a href=\"'.$search_url.'?field='.$this->options['imagesFields'].'&operator=7&q=:'.$p->id.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Pages found ('.$resid.')</a>';
 			}
 
 			// if($respath) {
