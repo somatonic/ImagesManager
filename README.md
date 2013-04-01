@@ -6,7 +6,9 @@ Every image will also show an image tag generated to copy into a textarea. This 
 
 `{image:/path/to/image/imagename/:100,0}`
 
-And can be altered to contain also classes:
+The :100,0 is the thumbnail size used to output the image.
+
+You can also have additional segment to contain classes:
 
 `{image:/path/to/image/imagename/:100,0:align_left}`
 
