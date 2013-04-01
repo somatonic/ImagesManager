@@ -46,6 +46,8 @@ The structure of the image repository looks like this
 
 Now you can use the ImagesManager to add categories and images. But you can also still use the page tree to add new stuff as usual.
 
+The root path, template names and fields are configurable in the module settings.
+
 
 ### How to install the module:
 
