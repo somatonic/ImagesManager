@@ -1,0 +1,12 @@
+#wrap_ImagesUpload{
+    /*display: none;*/
+}
+
+.Inputfield_ImagesUpload .InputfieldFileList{
+    display: none;
+}
+
+#uploadimages, #addcategory{
+    margin: 0 0.5em 0.5em 0;
+    display: inline;
+}
