@@ -1,20 +1,20 @@
-## Images Manager 0.0.1 alpha
+## Images Manager 0.0.2 alpha
 
 This module allows you to manage images from one central repository. You create a root page "/images/" where you can then add categories and images as pages. From there the new admin page created "ImagesManager" will show categories and images added in a ajax data table, from where you can see and search/filter all images, upload and create new categories and edit images too.
 
 Every image will also show an image tag generated to copy into a textarea. This tag looks like this:
 
-`{image:/path/to/image/imagename/:100,0}`
+`{image=/path/to/image/imagename/, width=200}`
 
-The :100,0 is the thumbnail size used to output the image.
+The width setting is the thumbnail size used to output the image.
 
 You can also have additional segment to contain classes:
 
-`{image:/path/to/image/imagename/:100,0:align_left}`
+`{image=/path/to/image/imagename/, width=100, class=align_left}`
 
 Or you can enter the id directly:
 
-`{image:1033:100,0}`
+`{image=1033, width=100}`
 
 Once inserted into a textarea field it will get parsed when saved and loaded automaticly. It will store an abstract id tag in Database and convert it back to the image HTML tag. So after first save you'll see the image inserted in a Wysiwyg and be able to resize and place it as usual. Once it's inserted somewhere Images Manager will show a search link with the pages containing the image (you can configure the fields int the module setting). You can change the image or move it to a different category, it will still work and show the correct image. This also works with multilanguage fields.
 
