@@ -1,7 +1,9 @@
 <?php
 
 /**
- * Images Parser Module for Images Manager
+ * ProcessWire Module Template
+ *
+ * Demonstrates the Module interface and how to add hooks.
  *
  * ProcessWire 2.x
  * Copyright (C) 2010 by Ryan Cramer
@@ -24,19 +26,19 @@ class ImagesManagerParser extends WireData implements Module {
 
         return array(
             'title' => 'Images Manager Parser',
-            'version' => 1,
+            'version' => 2,
             'summary' => 'Add Images Manager Overlay to Textarea Fields, parses textarea to abstracts image tags saved in DB.',
             'href' => '',
-            'author' => "Soma",
+            'author' => 'Soma',
             'singular' => true,
             'autoload' => true,
-            'requires' => array("ImagesManager")
+            'requires' => array('ImagesManager')
             );
     }
 
 
     public function init(){
-        $options = $this->modules->get("ImagesManager")->options;
+        $options = $this->modules->get('ImagesManager')->options;
         $this->options = $options;
 
         // add hook to replace image tags to id tags and back
@@ -48,36 +50,36 @@ class ImagesManagerParser extends WireData implements Module {
             $this->addHookAfter('InputfieldTextarea::render', $this, 'addImagesManager');
 
         } else {
-            $this->addHookAfter('Page::render', $this, "renderPage");
+            $this->addHookAfter('Page::render', $this, 'renderPage');
         }
     }
 
 
     public function addScripts(HookEvent $event){
-        $this->modules->get("ImagesManager");
-        $this->modules->get("JqueryFancybox");
-        $this->config->scripts->add($this->config->urls->ImagesManagerParser . "ImagesManagerParser.js");
+        $this->modules->get('ImagesManager');
+        $this->modules->get('JqueryFancybox');
+        $this->config->scripts->add($this->config->urls->ImagesManagerParser . 'ImagesManagerParser.js');
     }
 
     public function addImagesManager(HookEvent $event) {
         // add button to textarea fields
         $field = $event->object;
         $fieldset = $event->return;
-        $href = $this->pages->get(2)->find("name=imagesmanager")->first()->url;
-        $btn = $this->modules->get("InputfieldButton");
+        $href = $this->pages->get(2)->find('name=imagesmanager')->first()->url;
+        $btn = $this->modules->get('InputfieldButton');
         $btn->href = $href;
-        $btn->attr("id","imagesmanager_".$field->name);
-        $btn->value = $this->_("Images Manager");
-        $class = $btn->attr("class");
-        $btn->attr("class", $class ." imagesmanager_fancybox");
+        $btn->attr('id','imagesmanager_' . $field->name);
+        $btn->value = $this->_('Images Manager');
+        $class = $btn->attr('class');
+        $btn->attr('class', $class .' imagesmanager_fancybox');
         // add a "Hello World" paragraph right before the closing body tag
-        $event->return = str_replace($event->return, $btn->render() ."<br/>". $event->return , $event->return);
+        $event->return = str_replace($event->return, $btn->render() .'<br/>'. $event->return , $event->return);
     }
 
     public function wakeupValue(HookEvent $event) {
 
         // prevent execution (some conflicts) on field edit for tinymce textarea language fields
-        if(wire("process") == "ProcessField") return;
+        if(wire('process') == 'ProcessField') return;
 
         $arguments = $event->arguments; // $page, $field, $value
         $value = $arguments[2];
@@ -90,7 +92,7 @@ class ImagesManagerParser extends WireData implements Module {
             $value = $this->parseTags($value);
         }
 
-        if($this->config->debug) $this->message("FieldtypeTextarea (wakeupValue): " . $arguments[0]->path . ": " . $arguments[1]->name);
+        if($this->config->debug) $this->message('FieldtypeTextarea (wakeupValue): ' . $arguments[0]->path . ': ' . $arguments[1]->name);
 
         $arguments[2] = $value;
         $event->arguments = $arguments;
@@ -99,14 +101,12 @@ class ImagesManagerParser extends WireData implements Module {
     public function sleepValue(HookEvent $event) {
 
         // prevent execution (some conflicts) on field edit for tinymce textarea language fields
-        if(wire("process") == "ProcessField") return;
+        if(wire('process') == 'ProcessField') return;
 
         $arguments = $event->arguments;
         $value = $arguments[2];
 
         if(empty($value)) return;
-
-        // replace extra whitespace coming from TinyMCE to avoid string replace issues
 
         if($value instanceof LanguagesPageFieldValue) {
             $value = $this->replaceLanguageValues($value,false);
@@ -116,7 +116,7 @@ class ImagesManagerParser extends WireData implements Module {
         }
 
         // for debugging:
-        //if($this->config->debug) $this->message("FieldtypeTextarea (sleepValue): " . $arguments[0]->path . ": " . $arguments[1]->name);
+        if($this->config->debug) $this->message('FieldtypeTextarea (sleepValue): ' . $arguments[0]->path . ': ' . $arguments[1]->name);
 
         // stuff the value back in the arguments sent to the Fieldtype
         $arguments[2] = $value;
@@ -125,58 +125,81 @@ class ImagesManagerParser extends WireData implements Module {
 
 
     public function renderPage(HookEvent $event){
-
         $value = $event->return;
-
         $value = $this->parseTags($value);
         $event->return = $value;
     }
 
     public function ___parseTags($value){
 
-        preg_match_all('#\{image:(.+?)\}#i', $value, $matches, PREG_SET_ORDER);
+        preg_match_all('#\{(image=.+?)\}#i', $value, $matches, PREG_SET_ORDER);
 
         if(count($matches)){
 
             foreach($matches as $match) {
 
-                $match_parts = explode(":",$match[1]);
-                $url = $match_parts[0];
-                $imagepage = wire("pages")->get($url);
-
-                if(!$imagepage->id) continue;
-                $imagepage->of(false);
-
-                if(count($match_parts) >= 2){
-                    $dim = explode(",",$match_parts[1]);
-                    $img = $imagepage->image->first->size($dim[0],$dim[1])->url;
-                } else {
-                    $img = $imagepage->image->first->url;
-                }
                 //print_r($match_parts);
 
-                $align = '';
-                if(count($match_parts) >= 3){
-                    $align .= ' class="'.$match_parts[2].'"';
+                // to keep things easy and scalable we use PW selectors class
+                $selectors = new Selectors($match[1]);
+
+                $image_selector = $selectors->get('field=image');
+                $imagepage = wire('pages')->get($image_selector->value);
+                if(!$imagepage->id) continue;
+
+                $imagepage->of(false);
+                $image = $imagepage->get($this->options['imagesFieldName'])->first;
+                $width_selector = $selectors->get('field=width');
+                $height_selector = $selectors->get('field=height');
+                $class_selector = $selectors->get('field=class');
+
+                $width_attr = '';
+                $height_attr = '';
+                if($width_selector->value && $height_selector->value) {
+                    $img = $image->size($width_selector->value, $height_selector->value)->url;
+                    $width_attr = ' width="' . $width_selector->value . '"';
+                    $height_attr = ' height="' . $height_selector->value . '"';
+                } else if($width_selector->value) {
+                    $img = $image->size($width_selector->value,0)->url;
+                    $width_attr = ' width="' . $width_selector->value . '"';
+                } else if($height_selector->value) {
+                    $img = $image->size(0,$height_selector->value)->url;
+                    $height_attr = ' height="' . $height_selector->value . '"';
+                } else {
+                    $img = $image->first->url;
                 }
 
-                $width = $dim[0] ? ' width="'.$dim[0].'"' : '';
-                $height = $dim[1] ? ' height="'.$dim[1].'"' : '';
 
-                $descr = '';
-                if(strlen($imagepage->image->first->description)){
-                    $descr = ' alt="'.$imagepage->image->first->description.'"';
+                $class_attr = '';
+                if($class_selector->value){
+                    $class_attr .= ' class="' . $class_selector->value . '"';
                 }
 
-                if(!strlen($descr)){
-                    $descr = strlen($imagepage->get($this->options['imagesDescriptionField'])) ? ' alt="'.$imagepage->get($this->options['imagesDescriptionField']).'"' : '';
+                $rel_attr = '';
+                $rel_selector = $selectors->get("field=rel");
+                if($rel_selector->value){
+                    $rel_attr = ' rel="' . $rel_selector->value . '"';
                 }
 
-                $value = str_replace($match[0], '<img src="'.$img.'"'.$align.$width.$height.$descr.'/>', $value);
+                $id_attr = '';
+                $id_selector = $selectors->get("field=id");
+                if($id_selector->value){
+                    $id_attr = ' id="' . $id_selector->value . '"';
+                }
+
+                $alt_attr = '';
+                if(strlen($image->description)){
+                    $alt_attr = ' alt="' . $image->description . '"';
+                } else if($descr = $imagepage->get($this->options['imagesDescriptionField'])){
+                    $alt_attr = strlen($descr) ? ' alt="' . $descr . '"' : '';
+                }
+
+                $value = str_replace($match[0], '<img src="' . $img . '"' . $class_attr . $width_attr . $height_attr . $alt_attr . $id_attr . $rel_attr . '/>', $value);
             }
         }
         return $value;
     }
+
 
     public function ___replaceLanguageValues($value,$onlytags = true){
 
@@ -201,9 +224,10 @@ class ImagesManagerParser extends WireData implements Module {
         return $value;
     }
 
+
     public function ___parseImages($value){
 
-        // replace whitespace from TinyMCE
+        // replace extra whitespace coming from TinyMCE to avoid string replace issues
         $value = preg_replace("#([\"|\'])(\s+/>)#","$1/>",$value);
 
         $doc = new DOMDocument();
@@ -221,6 +245,8 @@ class ImagesManagerParser extends WireData implements Module {
             $width = $tag->getAttribute('width');
             $height = $tag->getAttribute('height');
             $class = $tag->getAttribute('class');
+            $rel = $tag->getAttribute('rel');
+            $id = $tag->getAttribute('id');
 
             if(strlen($src)){
                 $path = pathinfo($src);
@@ -229,20 +255,22 @@ class ImagesManagerParser extends WireData implements Module {
                 $imagepage = $this->pages->get($pageid);
 
                 if($imagepage->template == $this->options['imagesPageTemplate']){
+                    $orig_tag = $doc->saveXML($tag);
 
-                    $strtag = $doc->saveXML($tag);
-                    $dim = '';
-                    $dim .= $width ? ":$width" : ":0";
-                    $dim .= $height ? ",$height" : ",0";
-                    $class = $class ? ":$class" : '';
-                    $imagetag = "{image:".$pageid.$dim.$class."}";
-                    $replace[] = $strtag;
+                    $imagetag = "image=$pageid,";
+                    $imagetag .= $width ? "width=$width," : "";
+                    $imagetag .= $height ? "height=$height," : "";
+                    $imagetag .= $class ? "class=$class," : '';
+                    $imagetag .= $rel ? "rel=$rel," : '';
+                    $imagetag .= $id ? "id=$id," : '';
+                    $imagetag = "{". rtrim($imagetag,",") . "}";
+
+                    $replace[] = $orig_tag;
                     $with[] = $imagetag;
                 }
-
             }
         }
-        if(!empty($replace)) $value = str_replace($replace,$with,$value);
+        if(!empty($replace)) $value = str_replace($replace, $with, $value);
         return $value;
     }
 

@@ -19,633 +19,723 @@
 
 class ImagesManager extends Process implements Module, ConfigurableModule {
 
-	//static $columns = array('id','image','title','categories','path','modified','modified_users_id','actions');
-	static $columns = array('id','image','title','categories','path','found','actions');
+    //static $columns = array('id','image','title','categories','path','modified','modified_users_id','actions');
+    static $columns = array('id','image','title','parent','name','found','filesize','modified','actions');
 
-	protected static $defaults = array(
-		'imagesRoot' => '/images/',
-		'imagesPageTemplate' => 'image',
-		'imagesCategoryTemplate' => 'image-category',
-		'imagesDescriptionField' => 'image_description',
-		'imagesFields' => 'body|sidebar',
-		'tmpUploadPath' => 'site/assets/files/.tmp_uploads/'
-	);
+    protected static $defaults = array(
+        'imagesRoot' => '/images/',
+        'imagesPageTemplate' => 'image',
+        'imagesFieldName' => 'image',
+        'imagesCategoryTemplate' => 'image-category',
+        'imagesDescriptionField' => 'image_description',
+        'imagesFields' => 'body|body.data1011|sidebar',
+        'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
+        'maxFiles' => 50,
+        'maxFilesize' => 32
+    );
 
-	public static function getModuleInfo() {
-		return array(
-			'title' => 'Images Manager',
-			'summary' => 'Manage and search fmages from one resource tree. Upload and create new categories.',
-			'version' => 1,
-			'href' => '',
-			'author' => "Soma",
-			'permission' => 'page-edit',
-			'installs' => array("ImagesManagerParser"),
-			'permission' => "images-manager"
-		);
-	}
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'Images Manager',
+            'summary' => 'Manage and search fmages from one resource tree. Upload and create new categories.',
+            'version' => 2,
+            'href' => '',
+            'author' => 'Soma',
+            'permission' => 'page-edit',
+            'installs' => array('ImagesManagerParser'),
+            'permission' => 'images-manager'
+        );
+    }
 
-	public function init() {
-		//parent::init();
+    public function init() {
 
-		// define options for this module
-		$this->options = array_merge(self::$defaults, $this->data);
+        // define options for this module
+        $this->options = array_merge(self::$defaults, $this->data);
 
-		if($this->input->post->modal) {
-			$this->input->get->modal = 1;
-		}
+        if($this->input->post->modal) {
+            $this->input->get->modal = 1;
+        }
 
-		if(strpos($this->options['tmpUploadPath'],"/") === 0){
-			$this->upload_path = $this->options['tmpUploadPath'];
-		} else {
-			$this->upload_path = $this->config->paths->root . $this->options['tmpUploadPath'];
-		}
-	}
+        if(strpos($this->options['tmpUploadPath'], '/') === 0){
+            $this->upload_path = $this->options['tmpUploadPath'];
+        } else {
+            $this->upload_path = $this->config->paths->root . $this->options['tmpUploadPath'];
+        }
+    }
 
-	public function addScripts(){
-		$this->config->styles->append( $this->config->urls->ImagesManager . "ImagesManager.css" );
-	}
+    public function addScripts(){
+        $this->config->styles->append( $this->config->urls->ImagesManager . 'ImagesManager.css');
+    }
 
-	public function ___execute() {
+    public function ___execute() {
 
-		$this->setFuel('processHeadline', $minfo['title']);
+        $this->setFuel('processHeadline', $minfo['title']);
 
-		$this->addScripts();
+        $this->addScripts();
 
-		// add necessary admin page scripts
-		// ---------------------------------------------------------------------------------
-		$this->config->styles->append( $this->config->urls->ImagesManager . "css/demo_table.css" );
-		$this->config->styles->append( $this->config->urls->ImagesManager . "css/demo_table_jui.css" );
-		$this->config->styles->append( $this->config->urls->ImagesManager . "js/fancybox/jquery.fancybox.css" );
-		$this->config->scripts->append( $this->config->urls->ImagesManager . "js/dataTables/jquery.dataTables.min.js" );
-		$this->config->scripts->append( $this->config->urls->ImagesManager . "js/fancybox/jquery.fancybox.pack.js" );
-		$this->config->scripts->append( $this->config->urls->ImagesManager . "ImagesManager.js" );
+        // add necessary admin page scripts
+        // ---------------------------------------------------------------------------------
+        $this->config->styles->append( $this->config->urls->ImagesManager . 'css/demo_table.css' );
+        $this->config->styles->append( $this->config->urls->ImagesManager . 'css/demo_table_jui.css' );
+        $this->config->styles->append( $this->config->urls->ImagesManager . 'js/fancybox/jquery.fancybox.css' );
+        $this->config->scripts->append( $this->config->urls->ImagesManager . 'js/dataTables/jquery.dataTables.min.js' );
+        $this->config->scripts->append( $this->config->urls->ImagesManager . 'js/fancybox/jquery.fancybox.pack.js' );
+        $this->config->scripts->append( $this->config->urls->ImagesManager . 'ImagesManager.js' );
 
-		$modal = $this->input->get->modal ? "?modal=1" : '' ;
+        $modal = $this->input->get->modal ? '?modal=1' : '' ;
 
-		$create = $this->modules->get("InputfieldButton");
-		$create->attr("value",$this->_("Upload images"));
-		$create->attr('id',"uploadimages");
-		$create->href = "./upload/$modal";
+        $create = $this->modules->get('InputfieldButton');
+        $create->attr('value',$this->_('Upload images'));
+        $create->attr('id','uploadimages');
+        $create->href = "./upload/$modal";
 
-		$create_cat = $this->modules->get("InputfieldButton");
-		$create_cat->attr("value",$this->_("New category"));
-		$create_cat->attr('id',"addcategory");
-		$create_cat->href = "./addcategory/$modal";
+        $create_cat = $this->modules->get('InputfieldButton');
+        $create_cat->attr('value',$this->_('New category'));
+        $create_cat->attr('id','addcategory');
+        $create_cat->href = "./addcategory/$modal";
 
-		$minfo = self::getModuleInfo();
-
-
-		// multilanguage support so it can be translated, string as used in DataTable js
-		// ---------------------------------------------------------------------------------
-		$lang = array(
-			"sProcessing" => $this->_("loading..."),
-			"sLengthMenu" => $this->_("Show _MENU_ entries"),
-			"sZeroRecords" => $this->_("No search entries found"),
-			"sEmptyTable" => $this->_("No entries found"),
-			"sInfo" => $this->_("Show _START_ to _END_ of _TOTAL_ entries"),
-			"sInfoEmpty" => $this->_("Show 0 bis 0 von 0 Einträgen"),
-			"sInfoFiltered" => $this->_("(Filtered of _MAX_ total entries)"),
-			"sSearch" => $this->_("Search:"),
-			"sFirst" => $this->_("First"),
-			"sPrevious" => $this->_("Back"),
-			"sNext" => $this->_("Next"),
-			"sLast" => $this->_("Last"),
-		);
-
-		// output js config object for this module
-		// ---------------------------------------------------------------------------------
-		$this->config->js($this->className(), $lang);
-
-		// build form for categories filtering
-		// ---------------------------------------------------------------------------------
-		$form = $this->modules->get("InputfieldForm");
-		$form->id = 'filters';
-		$form->method = 'get';
-		$form->action = './';
+        $minfo = self::getModuleInfo();
 
 
-		// generating the categories select
-		// ---------------------------------------------------------------------------------
+        // multilanguage support so it can be translated, string as used in DataTable js
+        // ---------------------------------------------------------------------------------
+        $lang = array(
+            'sProcessing' => $this->_('loading...'),
+            'sLengthMenu' => $this->_('Show _MENU_ entries'),
+            'sZeroRecords' => $this->_('No search entries found'),
+            'sEmptyTable' => $this->_('No entries found'),
+            'sInfo' => $this->_('Show _START_ to _END_ of _TOTAL_ entries'),
+            'sInfoEmpty' => $this->_('Show 0 bis 0 von 0 entries'),
+            'sInfoFiltered' => $this->_('(Filtered of _MAX_ total entries)'),
+            'sSearch' => $this->_('Search:'),
+            'sFirst' => $this->_('First'),
+            'sPrevious' => $this->_('Back'),
+            'sNext' => $this->_('Next'),
+            'sLast' => $this->_('Last'),
+        );
 
-		$field = $this->modules->get("InputfieldSelect");
-		$field->attr('id+name', 'filter_category');
-		$field->label = $this->_("Filter by category");
-		$field->description = $this->_("All images of the category:");
-		$field->addOption('all', $this->_("All"));
-		$field->attr("value",$this->session->categoryfilter ? $this->session->categoryfilter : '');
-		$field->collapsed = Inputfield::collapsedNo;
+        // output js config object for this module
+        // ---------------------------------------------------------------------------------
+        $this->config->js($this->className(), $lang);
 
-		$this->listCategoryTree($this->pages->get('/images/')->children,$field);
+        // build form for categories filtering
+        // ---------------------------------------------------------------------------------
+        $form = $this->modules->get('InputfieldForm');
+        $form->id = 'filters';
+        $form->method = 'get';
+        $form->action = './';
 
-		//add select to fieldset wrapper and from wrapper
-		$form->add($field);
 
-		// constructing default empty html markup table output
-		// ---------------------------------------------------------------------------------
+        // generating the categories select
+        // ---------------------------------------------------------------------------------
 
-		$out = '';
-		$tmarkup = <<<_END
-<table width="100%" class="dataTable display">
-		<col width="5%"/>
-		<col width="15%"/>
-		<col width="20%"/>
-		<col width="10%"/>
-		<col width="20%"/>
-		<col width="20%"/>
-		<col width="10%"/>
-		<thead>
-			<tr>
-				<th>ID</th>
-				<th>Preview</th>
-				<th>Title</th>
-				<th>Categories</th>
-				<th>Imagetag</th>
-				<th>Pages</th>
-				<th>Actions</th>
-			</tr>
-		</thead>
-		<tbody>
+        $field = $this->modules->get('InputfieldSelect');
+        $field->attr('id+name', 'filter_category');
+        $field->label = $this->_('Filter by category');
+        $field->description = $this->_('All images of the category:');
+        $field->addOption('all', $this->_('All'));
+        $field->attr('value',$this->session->categoryfilter ? $this->session->categoryfilter : '');
+        $field->collapsed = Inputfield::collapsedNo;
 
-		</tbody>
-		<tfoot>
-			<tr>
-				<th>ID</th>
-				<th>Preview</th>
-				<th>Title</th>
-				<th>Categories</th>
-				<th>Imagetag</th>
-				<th>Pages</th>
-				<th>Actions</th>
-			</tr>
-		</tfoot>
+        $this->listCategoryTree($this->pages->get($this->options['imagesRoot'])->children,$field);
+
+        //add select to fieldset wrapper and from wrapper
+        $form->add($field);
+
+        // constructing default empty html markup table output
+        // ---------------------------------------------------------------------------------
+
+        $h_id = $this->_('ID');
+        $h_preview = $this->_('Preview');
+        $h_title = $this->_('Title');
+        $h_categories = $this->_('Categories');
+        $h_imagetag = $this->_('Imagetag');
+        $h_pagesfound = $this->_('Pages');
+        $h_size = $this->_('Size');
+        $h_modified = $this->_('Modified');
+        $h_actions = $this->_('Actions');
+
+        $out = '';
+        $tmarkup = <<<_END
+<table width="100%" class="imagesManagerDataTable display">
+        <col width="5%"/>
+        <col width="10%"/>
+        <col width="20%"/>
+        <col width="10%"/>
+        <col width="25%"/>
+        <col width="10%"/>
+        <col width="5%"/>
+        <col width="10%"/>
+        <col width="5%"/>
+        <thead>
+            <tr>
+                <th>$h_id</th>
+                <th>$h_preview</th>
+                <th>$h_title</th>
+                <th>$h_categories</th>
+                <th>$h_imagetag</th>
+                <th>$h_pagesfound</th>
+                <th>$h_size</th>
+                <th>$h_modified</th>
+                <th>$h_actions</th>
+            </tr>
+        </thead>
+        <tbody>
+
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>$h_id</th>
+                <th>$h_preview</th>
+                <th>$h_title</th>
+                <th>$h_categories</th>
+                <th>$h_imagetag</th>
+                <th>$h_pagesfound</th>
+                <th>$h_size</th>
+                <th>$h_modified</th>
+                <th>$h_actions</th>
+            </tr>
+        </tfoot>
 </table>
 
 <script>
-	$(function(){
+    $(function(){
 
 
 
-	});
+    });
 
 </script>
 _END;
-		// return markup for output
-		return $create->render() . $create_cat->render() . $form->render() . $tmarkup;
+        // return markup for output
+        return $create->render() . $create_cat->render() . $form->render() . $tmarkup;
 
-	}
+    }
 
-	/**
-	* getdata
-	* gets called by the datatable to recieve the table data
-	*
-	* @return string datatable object array
-	*/
+    /**
+    * getdata
+    * gets called by the datatable to recieve the table data
+    *
+    * @return string datatable object array
+    */
 
-	public function executeGetData() {
+    public function executeGetData() {
 
-		$admin_url = $this->config->urls->admin;
-		$template = '';
-		$category = '';
-		$is_superuser = $this->user->isSuperuser();
+        $admin_url = $this->config->urls->admin;
+        $template = '';
+        $category = '';
+        $is_superuser = $this->user->isSuperuser();
+        $lang = $this->user->language;
 
-		// if category set
-		if(isset($this->input->get->filter_category)
-		   && $this->input->get->filter_category != 'all'
-		   && $this->input->get->filter_category != '') {
-			$category_name = $this->sanitizer->selectorValue($this->input->get->filter_category);
-			$category_page = $this->pages->get("template=".$this->options['imagesCategoryTemplate'].",name=$category_name");
-			$category = "parent=" . $category_page . ",";
-			// save template filter in session
-			$this->session->categoryfilter = $this->input->get->filter_category;
-		} else {
-			$this->session->categoryfilter = $this->input->get->filter_category;
-		}
-
-		// extend selector string with access options
-		$selector = "{$category}include=all,";
-
-		// if not superuser exclude admin pages and trash page
-		//if(!$is_superuser) $selector .= "template!=admin,template=poduct,has_parent!=2,id!=2|7,";
-		$selector .= "template!=admin,template=".$this->options['imagesPageTemplate'].",has_parent!=2,id!=2|7,";
-
-		if( $this->input->get->sSearch ) {
-			$q = $this->sanitizer->text($this->input->get->sSearch);
-			$selector .= "title%=$q,";
-		}
-
-		$sOrder = '';
-
-		if ( $this->input->get->iSortingCols > 0 ) {
-			for ( $i = 0 ; $i < intval( $this->input->get->iSortingCols ) ; $i++ ) {
-				if ( $this->input->get( "bSortable_$i" ) == true ) {
-					$sort = '';
-					$sort = $this->input->get( "sSortDir_$i" ) == 'asc' ? '-' : '' ;
-					$sOrder .= "sort=".$sort.self::$columns[ intval( $this->input->get[ "iSortCol_$i" ] ) ] . ",";
-				} else {
-					$sOrder = "sort=-modified";
-				}
-			}
-			//$sOrder = substr( $sOrder, 0 , -1 );
-		} else {
-			$sOrder = "sort=-modified";
-		}
-
-		$selector .= $sOrder;
-
-		//echo $selector;
-		//exit();
-
-		$pa = $this->pages->find($selector."parent!=/trash/,start=".$_REQUEST['iDisplayStart'].",limit=".$_REQUEST['iDisplayLength']);
-		$total = $pa->getTotal();
-
-		$sOutput = '';
-		$sOutput .= '{"sEcho": '.intval($_GET['sEcho']).', ';
-		$sOutput .= '"iTotalRecords": '.$total.', ';
-		$sOutput .= '"iTotalDisplayRecords": '.$total.', ';
-		$sOutput .= '"aaData": [ ';
-
-
-		$json = array();
-		foreach($pa as $p) {
-
-			// get status'
-			$editable = $p->editable();
-			$unpublished = $p->is(Page::statusUnpublished);
-			$viewable = $p->viewable();
-
-			$sOutput .= "[";
-
-			// page id
-			$sOutput .= '"'.$p->id.'",';
-
-			// page image
-			$sOutput .= '"<a href=\''.$p->image->first()->url.'\' class=\'iframe\'><img src=\''.$p->image->first->size(80,0)->url.'\'/></a>",';
-
-			/**
-			 * field title
-			 */
-			$sOutput .= '"';
-			if($unpublished) $sOutput .= '<s>';
-			// if($editable) $sOutput .= '<a class=\"edit-modal fancybox.iframe\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'&modal=1\">';
-			if($editable) $sOutput .= '<a class=\"\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'\">';
-			$sOutput .= $p->get("title|name") ;
-			if($editable) $sOutput .= '</a>';
-			if($unpublished) $sOutput .= '</s>';
-			$sOutput .= '",';
-
-			/**
-			 * categories and pages found image on
-			 */
-			$sOutput .= '"';
-			$cats = "";
-			foreach($p->parents->slice(2) as $cat) $cats .= $cat->title . "," ;
-			$sOutput .= rtrim($cats,",");
-			$sOutput .= '",';
-
-			/**
-			 * path with url to open in tree
-			 */
-			$sOutput .= '"';
-			$sOutput .= '{image:'.$p->path.':100,0}';
-			$sOutput .= '",';
-
-			// date modified
-			//$sOutput .= '"'.date('Y-m-d H:i:s',$p->modified).'",';
-
-			$sOutput .= '"';
-			//$res = $this->pages->count("body%=:{$p->path},include=hidden");
-			$resid = $this->pages->count($this->options['imagesFields'] ."%={image:{$p->id},include=hidden");
-
-			$imgurl = $p->image->first->url;
-			$imginfo = pathinfo($imgurl);
-			$file_name = $imginfo['dirname'] . DIRECTORY_SEPARATOR . $imginfo['filename'];
-			//$respath = $this->pages->count("body%=$file_name,include=hidden");
-
-			// if($res) {
-			// 	$search_url = $this->config->urls->admin . "page/search/";
-			// 	$sOutput .= ' <a href=\"'.$search_url.'?field=body&operator=7&q=:'.$p->path.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Paths ('.$res.')</a>';
-			// }
-
-			if($resid) {
-				$search_url = $this->config->urls->admin . "page/search/";
-				$sOutput .= ' <a href=\"'.$search_url.'?field='.$this->options['imagesFields'].'&operator=7&q=:'.$p->id.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Pages found ('.$resid.')</a>';
-			}
-
-			// if($respath) {
-			// 	$search_url = $this->config->urls->admin . "page/search/";
-			// 	$sOutput .= ' <a href=\"'.$search_url.'?field=body&operator=7&q='.$file_name.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Inline ('.$respath.')</a>';
-			// }
-
-			$sOutput .= '",';
-
-			// user modified
-			// if($this->user->hasRole('superuser')) {
-			// 	$sOutput .= '"<a href=\"/processwire/access/users/edit/?id='.$p->modifiedUser.'\">'.$p->modifiedUser->name.'</a>",';
-			// } else {
-			// 	$sOutput .= '"'.$p->modifiedUser->name.'",';
-			// }
-
-			$sOutput .= '"';
-			if($editable) $sOutput .= '<a class=\"edit-modal iframe\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'&modal=1&iframe\">edit</a>&nbsp;';
-			if($viewable) $sOutput .= '<a href=\"http://'.$this->config->httpHost.$p->url.'\">view</a>&nbsp;';
-			$sOutput .= '"';
-
-			$sOutput .= "],";
-		}
-
-		//$sOutput .= json_encode($json);
-
-		$sOutput = substr( $sOutput, 0, -1 );
-		$sOutput .= '] }';
-
-		return $sOutput;
-	}
-
-	public function executeUpload(){
-
-		$this->addScripts();
-
-		// create temp path if it isn't there already
-        if(!is_dir($this->upload_path)) {
-            if(!wireMkdir($this->upload_path)) throw new WireException("No upload path!");
+        // if category set
+        if(isset($this->input->get->filter_category)
+           && $this->input->get->filter_category != 'all'
+           && $this->input->get->filter_category != '') {
+            $category_name = $this->sanitizer->selectorValue($this->input->get->filter_category);
+            $category_page = $this->pages->get("template=".$this->options['imagesCategoryTemplate'].",name=$category_name");
+            $category = "parent=" . $category_page . ",";
+            // save template filter in session
+            $this->session->categoryfilter = $this->input->get->filter_category;
+        } else {
+            $this->session->categoryfilter = $this->input->get->filter_category;
         }
 
-		$minfo = self::getModuleInfo();
+        // extend selector string with access options
+        $selector = "{$category}include=all,";
 
-		$this->fuel('breadcrumbs')->add(new Breadcrumb('../', $minfo['title']));
-		$this->setFuel('processHeadline', $this->_("Upload New Images"));
+        // if not superuser exclude admin pages and trash page
+        //if(!$is_superuser) $selector .= "template!=admin,template=poduct,has_parent!=2,id!=2|7,";
+        $selector .= 'template!=admin,template=' . $this->options['imagesPageTemplate'] . ',has_parent!=2,id!=2|7,';
 
-		$out = "";
+        if( $this->input->get->sSearch ) {
+            $q = $this->sanitizer->text($this->input->get->sSearch);
+            $selector .= "title|{$this->options['imagesFieldName']}.description|{$this->options['imagesDescriptionField']}%=$q,";
+        }
 
-		$form = $this->modules->get("InputfieldForm");
-		$form->action = "./";
-		$form->method = 'post';
+        $sOrder = '';
 
-		if($this->input->get->modal){
-			$field = $this->modules->get("InputfieldHidden");
-	        $field->attr('id+name',"modal");
-	        $field->attr('value',1);
-	        $form->append($field);
-		}
+        if ( $this->input->get->iSortingCols > 0 ) {
+            for ( $i = 0 ; $i < intval( $this->input->get->iSortingCols ) ; $i++ ) {
+                if ( $this->input->get( "bSortable_$i" ) == true ) {
+                    $sort = '';
+                    $sort = $this->input->get( "sSortDir_$i" ) == 'asc' ? '-' : '' ;
+                    $sOrder .= "sort=".$sort.self::$columns[ intval( $this->input->get[ "iSortCol_$i" ] ) ] . ",";
+                } else {
+                    $sOrder = 'sort=-modified';
+                }
+            }
+            //$sOrder = substr( $sOrder, 0 , -1 );
+        } else {
+            $sOrder = 'sort=-modified';
+        }
 
-		$field = $this->modules->get("InputfieldPageListSelect");
-        $field->label = $this->_("Select category");
-        $field->description = $this->_("First select the category to want to upload images to.");
+        $selector .= $sOrder;
+
+        //echo $selector;
+        //exit();
+
+        $pa = $this->pages->find($selector . 'parent!=/trash/,start=' . $_REQUEST['iDisplayStart'] . ',limit=' . $_REQUEST['iDisplayLength']);
+        $total = $pa->getTotal();
+        // if()$pa->sort("id");
+
+        $sOutput = '';
+        $sOutput .= '{"sEcho": '.intval($_GET['sEcho']).', ';
+        $sOutput .= '"iTotalRecords": '.$total.', ';
+        $sOutput .= '"iTotalDisplayRecords": '.$total.', ';
+        $sOutput .= '"aaData": [ ';
+
+
+        $json = array();
+        foreach($pa as $p) {
+
+            // get status'
+            $editable = $p->editable();
+            $unpublished = $p->is(Page::statusUnpublished);
+            $viewable = $p->viewable();
+
+            $sOutput .= "[";
+
+            /**
+             * page id
+             */
+            $sOutput .= '"'.$p->id.'",';
+
+            /**
+             * page image
+             */
+            $sOutput .= '"';
+            $sOutput .= "<a href='{$p->image->first->url}' class='fancybox'><img src='{$p->image->first->size(80,0)->url}'/></a>";
+            $sOutput .= '",';
+
+            /**
+             * field title
+             */
+            $sOutput .= '"';
+            if($unpublished) $sOutput .= '<s>';
+            // if($editable) $sOutput .= '<a class=\"edit-modal fancybox.iframe\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'&modal=1\">';
+            if($editable) $sOutput .= "<a class='' href='{$admin_url}page/edit/?id={$p->id}'>";
+            $sOutput .= $p->title; //$p->get("title|name") ;
+            if($editable) $sOutput .= '</a>';
+            if($unpublished) $sOutput .= '</s>';
+            $sOutput .= '",';
+
+
+
+            /**
+             * categories and pages found image on
+             */
+            $sOutput .= '"';
+            $cats = "";
+            foreach($p->parents->slice(2) as $cat) $cats .= $cat->title . "," ;
+            $sOutput .= rtrim($cats,",");
+            $sOutput .= '",';
+
+            /**
+             * col image tag
+             */
+            $sOutput .= '"';
+            $sOutput .= "<input type='tex' class='imagesmanager_tagfield' value='{image=$p->path, width=200, class=align_left}'/>";
+            $sOutput .= '",';
+
+            /**
+             * col date modified
+             */
+            //$sOutput .= '"'.date('Y-m-d H:i:s',$p->modified).'",';
+
+            /**
+             * col pages found
+             */
+            $sOutput .= '"';
+
+            $resid = $this->pages->count($this->options['imagesFields'] ."*={image={$p->id},include=hidden");
+            $imgurl = $p->image->first->url;
+            $imginfo = pathinfo($imgurl);
+            $file_name = $imginfo['dirname'] . DIRECTORY_SEPARATOR . $imginfo['filename'];
+            if($resid){
+                $search_url = $this->config->urls->admin . "page/search/";
+                $search_param = "?field={$this->options['imagesFields']}&q=%7Bimage%3D{$p->id}&show_options=1&submit=Search&sort=relevance&display=title,path";
+                $sOutput .= "<a href='{$search_url}{$search_param}'>Pages found ({$resid})</a>";
+            }
+            $sOutput .= '",';
+
+            //$res = $this->pages->count("body%=:{$p->path},include=hidden");
+            //$respath = $this->pages->count("body%=$file_name,include=hidden");
+
+            // if($res) {
+            //  $search_url = $this->config->urls->admin . "page/search/";
+            //  $sOutput .= ' <a href=\"'.$search_url.'?field=body&operator=7&q=:'.$p->path.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Paths ('.$res.')</a>';
+            // }
+
+            // if($respath) {
+            //  $search_url = $this->config->urls->admin . "page/search/";
+            //  $sOutput .= ' <a href=\"'.$search_url.'?field=body&operator=7&q='.$file_name.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Inline ('.$respath.')</a>';
+            // }
+
+            // user modified
+            // if($this->user->hasRole('superuser')) {
+            //  $sOutput .= '"<a href=\"/processwire/access/users/edit/?id='.$p->modifiedUser.'\">'.$p->modifiedUser->name.'</a>",';
+            // } else {
+            //  $sOutput .= '"'.$p->modifiedUser->name.'",';
+            // }
+
+            /**
+             * col filesize
+             */
+            $sOutput .= '"';
+            $sOutput .= "<span style='white-space:nowrap;'>{$p->image->first()->filesizeStr}</span>";
+            $sOutput .= '",';
+
+            /**
+             * col modified
+             */
+            $sOutput .= '"';
+            $modified = date('d/m/Y H:i:s',$p->modified);
+            $sOutput .= "<span style='white-space:nowrap;'>{$modified}</span>";
+            $sOutput .= '",';
+
+            /**
+             * col edit modal link
+             */
+            $sOutput .= '"';
+            if($editable) $sOutput .= '<a class=\"edit-modal iframe\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'&modal=1&iframe\">edit</a>&nbsp;';
+            if($viewable) $sOutput .= '<a href=\"http://'.$this->config->httpHost.$p->url.'\">view</a>&nbsp;';
+            $sOutput .= '"';
+
+            $sOutput .= "],";
+        }
+
+        //$sOutput .= json_encode($json);
+
+        $sOutput = substr( $sOutput, 0, -1 );
+        $sOutput .= '] }';
+
+        return $sOutput;
+    }
+
+    public function executeUpload(){
+
+        $this->addScripts();
+
+        // create temp path if it isn't there already
+        if(!is_dir($this->upload_path)) {
+            if(!wireMkdir($this->upload_path)) throw new WireException('No upload path!');
+        }
+
+        $minfo = self::getModuleInfo();
+
+        $this->fuel('breadcrumbs')->add(new Breadcrumb('../', $minfo['title']));
+        $this->setFuel('processHeadline', $this->_('Upload New Images'));
+
+        $out = "";
+
+        $form = $this->modules->get('InputfieldForm');
+        $form->action = './';
+        $form->method = 'post';
+
+        if($this->input->get->modal){
+            $field = $this->modules->get('InputfieldHidden');
+            $field->attr('id+name','modal');
+            $field->attr('value',1);
+            $form->append($field);
+        }
+
+        $field = $this->modules->get('InputfieldPageListSelect');
+        $field->label = $this->_('Select category');
+        $field->description = $this->_('First select the category to want to upload images to.');
         $field->parent_id = $this->pages->get($this->options['imagesRoot'])->id;
-        $field->attr('id+name',"ParentPage");
+        $field->attr('id+name','ParentPage');
         $form->append($field);
 
-        $field = $this->modules->get("InputfieldFile");
-        $field->label = "Upload Images";
-        $field->attr('id+name',"ImagesUpload");
+        $field = $this->modules->get('InputfieldImage');
+        $field->label = $this->_('Upload Images');
+        $field->description = sprintf($this->_('Upload max %s images'),$this->options['maxFiles']);
+        $field->attr('id+name','ImagesUpload');
 
-		$field->required = 1;
-		$field->maxWidth = 1280;
-		$field->maxHeight = 1280;
-		$field->destinationPath = $this->upload_path;
-		$field->extensions = "jpg jpeg gif png";
-		$field->maxFiles = 50;
-		$field->maxFilesize = 32*1024*1024;
-        $form->append($field);
+        $image_field = $this->fields->get($this->options['imagesFieldName']);
+        if(!$image_field) throw new WireException("Image field could not be found. Make sure the image field '".$this->options["imagesFieldName"]."' exists.");
 
-		$field = $this->modules->get("InputfieldSubmit");
-		$field->attr("value",$this->_("Upload"));
-		$field->attr("name+id",'submit');
-		$form->append($field);
-
-		$field = $this->modules->get("InputfieldButton");
-		$field->attr("value",$this->_("Back"));
-		$field->attr("name+id",'back');
-		$modal = $this->input->get->modal ? '?modal=1' : '';
-		$field->href = "../$modal";
-		$form->append($field);
-
-		if($this->input->post->submit){
-
-			$form->processInput($this->input->post);
-
-			if($this->input->post->ParentPage){
-
-		        // save uploaded files to new page and remove temp files
-		        $files = explode("|",$form->get("ImagesUpload")->value);
-		        foreach($files as $file){
-		            if($file && file_exists($this->upload_path . $file)){
-		            	$imagepage = new Page();
-		       			$imagepage->template = $this->options['imagesPageTemplate'];
-		        		$imagepage->parent = $this->pages->get($this->input->post->ParentPage);
-		        		$info = pathinfo($file);
-						$file_name = $info['filename'];
-		        		$imagepage->title = $file_name;
-		        		$imagepage->save();
-
-		                $img = new PageImage($imagepage->image, $this->upload_path . $file);
-		                $imagepage->image->add($this->upload_path . $file);
-		                $form->get("ImagesUpload")->fileAdded($img);
-
-		                unlink($this->upload_path . $file);
-
-		                $imagepage->save();
-
-		                $this->message(sprintf($this->_("Added new image: %s"),$imagepage->url));
-		            }
-		        }
-			}
-			else {
-				$form->get("ParentPage")->error($this->_("Please select a category to upload images"));
-			}
-		}
-
-
-        $out .= $form->render();
-		return $out;
-
-	}
-
-
-	public function executeAddCategory(){
-
-		$out = '';
-		$minfo = self::getModuleInfo();
-
-		$this->fuel('breadcrumbs')->add(new Breadcrumb('../', $minfo['title']));
-		$this->setFuel('processHeadline', $this->_("Add New Category"));
-
-		$out = "";
-
-		$form = $this->modules->get("InputfieldForm");
-		$form->action = "./";
-		$form->method = 'post';
-
-		if($this->input->get->modal){
-			$field = $this->modules->get("InputfieldHidden");
-	        $field->attr('id+name',"modal");
-	        $field->attr('value',1);
-	        $form->append($field);
-		}
-
-		$field = $this->modules->get("InputfieldPageListSelect");
-        $field->label = $this->_("Select parent category");
-        $field->parent_id = $this->pages->get($this->options['imagesRoot'])->id;
-        $field->attr('name',"ParentCategory");
-        $field->description = $this->_("Select a category to add a subcategory to, or leave blank to create one in the root.");
-        $form->append($field);
-
-        $field = $this->modules->get("InputfieldPageTitle");
-        $field->label = "Title";
         $field->required = 1;
-        $field->attr('name',"title");
+        $field->maxWidth = $image_field->maxWidth;
+        $field->maxHeight = $image_field->maxHeight;
+        $field->destinationPath = $this->upload_path;
+        $field->extensions = $image_field->extensions;
+        $field->maxFiles = $this->options['maxFiles'];
+        // $field->maxFilesize = $this->options['maxFilesize'] * 1024 * 1024;
         $form->append($field);
 
-        $field = $this->modules->get("InputfieldPageName");
-        $field->attr('name',"_pw_page_name");
+        $field = $this->modules->get('InputfieldSubmit');
+        $field->attr('value',$this->_('Upload'));
+        $field->attr('name+id','submit');
         $form->append($field);
 
-		$field = $this->modules->get("InputfieldSubmit");
-		$field->attr("value",$this->_("Add category"));
-		$field->attr("name+id",'submit');
-		$form->append($field);
+        $field = $this->modules->get('InputfieldButton');
+        $field->attr('value',$this->_('Back'));
+        $field->attr('name+id','back');
+        $modal = $this->input->get->modal ? '?modal=1' : '';
+        $field->href = "../$modal";
+        $form->append($field);
 
-		$field = $this->modules->get("InputfieldButton");
-		$field->attr("value",$this->_("Back"));
-		$field->attr("name+id",'back');
-		$modal = $this->input->get->modal ? '?modal=1' : '';
-		$field->href = "../$modal";
-		$form->append($field);
+        if($this->input->post->submit){
 
-		if($this->input->post->submit){
+            $errors = false;
+            $form->processInput($this->input->post);
 
-			$this->notices->remove("error");
+            // hacky way to get upload max files errors on image fieltypes
+            // since it uses notices to populate errors (?? TODO ask Ryan)
 
-			$form->processInput($this->input->post);
+            if($this->notices->hasErrors() || $this->input->post->ParentPage == ''){
+                $errors = true;
+                if(!$this->input->post->ParentPage){
+                    $form->get('ParentPage')->error($this->_('Please select a category to upload images.'));
+                }
+                // remove unwanted messages keeping only the error message
+                foreach($this->notices as $notice){
+                    if($notice instanceof NoticeMessage){
+                        $this->notices->remove($notice);
+                    }
+                }
+            }
 
-			if(!count($form->getErrors())){
-				$page_title = $form->get("title")->value;
-				$page_name = $form->get("_pw_page_name")->value;
+            if(!count($form->getErrors()) && !$errors){
+                // save uploaded files to new page and remove temp files
+                $files = explode('|',$form->get('ImagesUpload')->value);
+                foreach($files as $file){
+                    if($file && file_exists($this->upload_path . $file)){
+                        $imagepage = new Page();
+                        $imagepage->template = $this->options['imagesPageTemplate'];
+                        $imagepage->parent = $this->pages->get($this->input->post->ParentPage);
+                        $info = pathinfo($file);
+                        $file_name = $info['filename'];
+                        $imagepage->title = $file_name;
+                        $imagepage->save();
 
-				if($this->input->post->ParentCategory != 0){
-	        		$page_parent = $this->pages->get($this->input->post->ParentCategory);
-				} else {
-					$page_parent = $this->pages->get($this->options['imagesRoot']);
-				}
-				$found = $this->pages->count("parent=$page_parent,name=$page_name");
-				if($found){
-					$form->get("_pw_page_name")->error($this->_("Category already exists with the same name."));
-				} else {
-					$categorypage = new Page();
-		       		$categorypage->template = $this->options['imagesCategoryTemplate'];
-		       		$categorypage->parent = $page_parent;
+                        $img = new PageImage($imagepage->image, $this->upload_path . $file);
+                        $imagepage->image->add($this->upload_path . $file);
+                        $form->get('ImagesUpload')->fileAdded($img);
 
-					$categorypage->title = $page_title;
-					$categorypage->name = $page_name;
-					$categorypage->save();
-					$this->message(sprintf($this->_("New category added at %s"),$categorypage->url));
-					$form->get("title")->value = '';
-					$form->get("_pw_page_name")->value = '';
-				}
+                        unlink($this->upload_path . $file);
+                        $imagepage->save();
+                    }
+                }
+            }
+        }
 
-			}
-		}
+        $out .= $form->render();
+        return $out;
+
+    }
+
+
+    public function executeAddCategory(){
+
+        $out = '';
+        $minfo = self::getModuleInfo();
+
+        $this->fuel('breadcrumbs')->add(new Breadcrumb('../', $minfo['title']));
+        $this->setFuel('processHeadline', $this->_('Add New Category'));
+
+        $out = '';
+
+        $form = $this->modules->get('InputfieldForm');
+        $form->action = './';
+        $form->method = 'post';
+
+        if($this->input->get->modal){
+            $field = $this->modules->get('InputfieldHidden');
+            $field->attr('id+name','modal');
+            $field->attr('value',1);
+            $form->append($field);
+        }
+
+        $field = $this->modules->get('InputfieldPageListSelect');
+        $field->label = $this->_('Select parent category');
+        $field->parent_id = $this->pages->get($this->options['imagesRoot'])->id;
+        $field->attr('name','ParentCategory');
+        $field->description = $this->_('Select a category to add a subcategory to, or leave blank to create one in the root.');
+        $form->append($field);
+
+        $field = $this->modules->get('InputfieldPageTitle');
+        $field->label = 'Title';
+        $field->required = 1;
+        $field->attr('name','title');
+        $form->append($field);
+
+        $field = $this->modules->get('InputfieldPageName');
+        $field->attr('name','_pw_page_name');
+        $form->append($field);
+
+        $field = $this->modules->get('InputfieldSubmit');
+        $field->attr('value',$this->_('Add category'));
+        $field->attr('name+id','submit');
+        $form->append($field);
+
+        $field = $this->modules->get('InputfieldButton');
+        $field->attr('value',$this->_('Back'));
+        $field->attr('name+id','back');
+        $modal = $this->input->get->modal ? '?modal=1' : '';
+        $field->href = "../$modal";
+        $form->append($field);
+
+        if($this->input->post->submit){
+
+            $this->notices->remove('error');
+
+            $form->processInput($this->input->post);
+
+            if(!count($form->getErrors())){
+                $page_title = $form->get('title')->value;
+                $page_name = $form->get('_pw_page_name')->value;
+
+                if($this->input->post->ParentCategory != 0){
+                    $page_parent = $this->pages->get($this->input->post->ParentCategory);
+                } else {
+                    $page_parent = $this->pages->get($this->options['imagesRoot']);
+                }
+                $found = $this->pages->count("parent=$page_parent,name=$page_name");
+                if($found){
+                    $form->get('_pw_page_name')->error($this->_('Category already exists with the same name.'));
+                } else {
+                    $categorypage = new Page();
+                    $categorypage->template = $this->options['imagesCategoryTemplate'];
+                    $categorypage->parent = $page_parent;
+
+                    $categorypage->title = $page_title;
+                    $categorypage->name = $page_name;
+                    $categorypage->save();
+                    $this->message(sprintf($this->_('New category added at %s'),$categorypage->url));
+                    $form->get('title')->value = '';
+                    $form->get('_pw_page_name')->value = '';
+                }
+
+            }
+        }
 
         $out .= $form->render();
 
-		return $out;
-	}
+        return $out;
+    }
 
-	public function ___listCategoryTree($children,$field,$ind = '') {
-		$ind .= ' –– ';
+    public function ___listCategoryTree($children,$field,$ind = '') {
+        $ind .= ' –– ';
         foreach($children as $page) {
-        	$countproducts = $this->pages->count("parent=$page,template=".$this->options['imagesPageTemplate']);
-			$field->addOption($page->name,$ind.$page->title ." ($countproducts)");
-			$children = $page->children("template=".$this->options['imagesCategoryTemplate']);
+            $countproducts = $this->pages->count("parent=$page,template=" . $this->options['imagesPageTemplate']);
+            $field->addOption($page->name,$ind.$page->title ." ($countproducts)");
+            $children = $page->children('template=' . $this->options['imagesCategoryTemplate']);
             if(count($children)) {
-            	$this->listCategoryTree($children,$field,$ind);
+                $this->listCategoryTree($children,$field,$ind);
             }
         }
         return $field;
-	}
+    }
 
 
-	public function ___install() {
-		$page = $this->pages->get('template=admin, name=imagesmanager');
-		if (!$page->id) {
-			$page = new Page();
-			$page->template = 'admin';
-			$page->parent = $this->pages->get(2);
-			$page->title = 'ImagesManager';
-			$page->name = 'imagesmanager';
-			$page->process = $this;
-			$page->save();
-		}
-	}
+    public function ___install() {
+        $page = $this->pages->get('template=admin, name=imagesmanager');
+        if (!$page->id) {
+            $page = new Page();
+            $page->template = 'admin';
+            $page->parent = $this->pages->get(2);
+            $page->title = 'ImagesManager';
+            $page->name = 'imagesmanager';
+            $page->process = $this;
+            $page->save();
+        }
+    }
 
 
-	public function ___uninstall() {
-		$page = $this->pages->get('template=admin, name=imagesmanager');
-		if ($page->id) $page->delete();
-	}
+    public function ___uninstall() {
+        $page = $this->pages->get('template=admin, name=imagesmanager');
+        if ($page->id) $page->delete();
+    }
 
 
-	static public function getModuleConfigInputfields(array $data) {
+    static public function getModuleConfigInputfields(array $data) {
 
-		$data = array_merge(self::$defaults, $data);
+        $data = array_merge(self::$defaults, $data);
 
-		$fields = new InputfieldWrapper();
-		$modules = wire("modules");
+        $fields = new InputfieldWrapper();
+        $modules = wire('modules');
 
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'imagesRoot');
-		$field->attr('size',20);
-		$field->attr('value', $data['imagesRoot']);
-		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Root Images Page URL";
-		$field->description = "The URL of the root page where the images are stored.";
-		$fields->append($field);
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesRoot');
+        $field->attr('size',20);
+        $field->attr('value', $data['imagesRoot']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Root Images Page URL';
+        $field->description = 'The URL of the root page where the images are stored.';
+        $fields->append($field);
 
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'imagesPageTemplate');
-		$field->attr('size',20);
-		$field->attr('value', $data['imagesPageTemplate']);
-		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Image Templatename";
-		$field->description = "Template to use for the images.";
-		$fields->append($field);
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesPageTemplate');
+        $field->attr('size',20);
+        $field->attr('value', $data['imagesPageTemplate']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Image Templatename';
+        $field->description = 'Template to use for the images.';
+        $fields->append($field);
 
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'imagesCategoryTemplate');
-		$field->attr('size',20);
-		$field->attr('value', $data['imagesCategoryTemplate']);
-		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Image Category Templatename";
-		$field->description = "Template to use for the images categories.";
-		$fields->append($field);
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesFieldName');
+        $field->attr('size',20);
+        $field->attr('value', $data['imagesFieldName']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Image Field';
+        $field->description = 'Image field name you use for the image template. It will get field settings from this field to configure image upload in Images Manager. Allowed image extensions, max width and height.';
+        $fields->append($field);
 
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'imagesDescriptionField');
-		$field->attr('size',20);
-		$field->attr('value', $data['imagesDescriptionField']);
-		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Alternative description fieldname";
-		$field->description = "Alternative description field on image page. This way you can use Language Text field.";
-		$fields->append($field);
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesCategoryTemplate');
+        $field->attr('size',20);
+        $field->attr('value', $data['imagesCategoryTemplate']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Image Category Templatename';
+        $field->description = 'Template to use for the images categories.';
+        $fields->append($field);
 
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'imagesFields');
-		$field->attr('size',50);
-		$field->attr('value', $data['imagesFields']);
-		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Textfields used for searching images on pages";
-		$field->description = "Add one or more fields separated by a pipe body|sidebar.";
-		$fields->append($field);
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesDescriptionField');
+        $field->attr('size',20);
+        $field->attr('value', $data['imagesDescriptionField']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Alternative description fieldname';
+        $field->description = 'Alternative description field on image page. This way you can use Language Text field.';
+        $fields->append($field);
 
-		$field = $modules->get("InputfieldText");
-		$field->attr('name', 'tmpUploadPath');
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesFields');
+        $field->attr('size',50);
+        $field->attr('value', $data['imagesFields']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Textfields used for searching images on pages';
+        $field->description = 'Add one or more fields separated by a pipe body|sidebar.';
+        $fields->append($field);
 
-		$field->attr('value', $data['tmpUploadPath']);
-		$field->set("collapsed",Inputfield::collapsedBlank);
-		$field->label = "Temp upload path";
-		$field->description = "Define another server path for uploading images temporarely. If not using absolute '/path' it will prepend 'config->paths->root' to the path.";
-		$fields->append($field);
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'tmpUploadPath');
+        $field->attr('value', $data['tmpUploadPath']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Temp upload path';
+        $field->description = "Define another server path for uploading images temporarely. If not using absolute '/path' it will prepend 'config->paths->root' to the path.";
+        $fields->append($field);
 
-		return $fields;
-	}
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'maxFiles');
+        $field->attr('size', 10);
+        $field->attr('value', $data['maxFiles']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Max files';
+        $field->description = 'Set the maximum files may uploaded using Images Manager.';
+        $fields->append($field);
+
+        // $field = $modules->get('InputfieldText');
+        // $field->attr('name', 'maxFilesize');
+        // $field->attr('size', 10);
+        // $field->attr('value', $data['maxFilesize']);
+        // $field->set('collapsed', Inputfield::collapsedBlank);
+        // $field->label = 'Max file upload size in MB';
+        // $field->description = 'Set the maximum upload file size for the images upload.';
+        // $fields->append($field);
+
+        return $fields;
+    }
 }

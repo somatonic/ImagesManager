@@ -10,3 +10,17 @@
     margin: 0 0.5em 0.5em 0;
     display: inline;
 }
+
+.imagesManagerDataTable .imagesmanager_tagfield{
+    width: 95%;
+    font-size: 10px!important;
+    position: absolute;
+    top: 20%;
+}
+.imagesManagerDataTable td{
+    position: relative;
+}
+.imagesManagerDataTable .imagesmanager_tagfield:focus{
+    width: 340%;
+    z-index: 1;
+}

@@ -21,7 +21,6 @@ $(window).load(function(){
     var imagesManagerFancybox = function($link){
         var h = $(window).height()-65;
         var w = $(window).width() > 1150 ? 1150 : $(window).width()-100;
-
         $link.fancybox({
             hideOnContentClick: true,
             centerOnScroll: false,
@@ -31,21 +30,16 @@ $(window).load(function(){
     };
 
     $('a.fancybox').on("mousedown", function(e){
-
         e.preventDefault();
         e.stopPropagation();
         imagesManagerFancybox($(this));
-
     });
 
 
     $('.dataTable').on("mousedown","a.iframe", function(e){
-
         e.preventDefault();
         imagesManagerFancybox($(this));
-
     });
-
 
 
 });
