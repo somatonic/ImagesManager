@@ -28,7 +28,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         'imagesFieldName' => 'image',
         'imagesCategoryTemplate' => 'image-category',
         'imagesDescriptionField' => 'image_description',
-        'imagesFields' => 'body|body.data1011|sidebar',
+        'imagesFields' => 'body|sidebar',
         'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
         'maxFiles' => 50,
         'maxFilesize' => 32
