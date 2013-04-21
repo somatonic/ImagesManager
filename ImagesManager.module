@@ -38,7 +38,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
     public static function getModuleInfo() {
         return array(
             'title' => 'Images Manager',
-            'summary' => 'Manage and search fmages from one resource tree. Upload and create new categories.',
+            'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
             'version' => 3,
             'href' => '',
             'author' => 'Soma',
@@ -50,7 +50,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
     public function init() {
 
-        // set options for this module
+        // define options for this module
         $this->options = array_merge(self::$defaults, $this->data);
 
         if($this->input->post->modal) {
@@ -344,7 +344,7 @@ _END;
              * col image tag
              */
             $sOutput .= '"';
-            $sOutput .= "<input type='tex' class='imagesmanager_tagfield' value='{image=$p->path, width=200, class=align_left}'/>";
+            $sOutput .= "<div class='imagesmanager_tagfield_wrapper'><input type='tex' class='imagesmanager_tagfield' value='{image=$p->path, width=200, class=align_left}'/></div>";
             $sOutput .= '",';
 
             /**
@@ -363,7 +363,7 @@ _END;
             // if($resid){
                 $search_url = $this->config->urls->admin . "page/search/";
                 $search_param = "?field={$this->options['imagesFields']}&q=%7Bimage%3D{$p->id}&show_options=1&submit=Search&sort=relevance&display=title,path";
-                $sOutput .= "<a href='{$search_url}{$search_param}'>" . $this->_('Search Pages') . "</a>";
+                $sOutput .= "<a href='{$search_url}{$search_param}'>" . $this->_('search') . "</a>";
             // }
             // $sOutput .= "";
             $sOutput .= '",';
