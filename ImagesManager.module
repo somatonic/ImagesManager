@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Images Manager 0.0.1 ProcessWire2
+ * Images Manager 0.0.3 ProcessWire2
  *
  * @author Philipp 'Soma' Urlich, philipp at urlich dot ch
  *
@@ -28,6 +28,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         'imagesFieldName' => 'image',
         'imagesCategoryTemplate' => 'image-category',
         'imagesDescriptionField' => 'image_description',
+        'imagesEXIFField' => 'image_exif',
         'imagesFields' => 'body|sidebar',
         'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
         'maxFiles' => 50,
@@ -38,7 +39,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         return array(
             'title' => 'Images Manager',
             'summary' => 'Manage and search fmages from one resource tree. Upload and create new categories.',
-            'version' => 2,
+            'version' => 3,
             'href' => '',
             'author' => 'Soma',
             'permission' => 'page-edit',
@@ -49,7 +50,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
     public function init() {
 
-        // define options for this module
+        // set options for this module
         $this->options = array_merge(self::$defaults, $this->data);
 
         if($this->input->post->modal) {
@@ -61,6 +62,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         } else {
             $this->upload_path = $this->config->paths->root . $this->options['tmpUploadPath'];
         }
+
     }
 
     public function addScripts(){
@@ -68,6 +70,8 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
     }
 
     public function ___execute() {
+
+        $minfo = self::getModuleInfo();
 
         $this->setFuel('processHeadline', $minfo['title']);
 
@@ -94,7 +98,6 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         $create_cat->attr('id','addcategory');
         $create_cat->href = "./addcategory/$modal";
 
-        $minfo = self::getModuleInfo();
 
 
         // multilanguage support so it can be translated, string as used in DataTable js
@@ -250,6 +253,7 @@ _END;
         if( $this->input->get->sSearch ) {
             $q = $this->sanitizer->text($this->input->get->sSearch);
             $selector .= "title|{$this->options['imagesFieldName']}.description|{$this->options['imagesDescriptionField']}%=$q,";
+            //$selector .= "title%=$q,";
         }
 
         $sOrder = '';
@@ -271,8 +275,8 @@ _END;
 
         $selector .= $sOrder;
 
-        //echo $selector;
-        //exit();
+        // echo $selector;
+        // exit();
 
         $pa = $this->pages->find($selector . 'parent!=/trash/,start=' . $_REQUEST['iDisplayStart'] . ',limit=' . $_REQUEST['iDisplayLength']);
         $total = $pa->getTotal();
@@ -304,7 +308,13 @@ _END;
              * page image
              */
             $sOutput .= '"';
-            $sOutput .= "<a href='{$p->image->first->url}' class='fancybox'><img src='{$p->image->first->size(80,0)->url}'/></a>";
+            $imageUrl = '#';
+            $thumb = '#';
+            if($p->image->first){
+                $imageUrl = $p->image->first->url;
+                $thumb = $p->image->first->size(80,0)->url;
+            }
+            $sOutput .= "<a href='{$imageUrl}' class='fancybox'><img src='{$thumb}'/></a>";
             $sOutput .= '",';
 
             /**
@@ -346,16 +356,16 @@ _END;
              * col pages found
              */
             $sOutput .= '"';
-
-            $resid = $this->pages->count($this->options['imagesFields'] ."*={image={$p->id},include=hidden");
-            $imgurl = $p->image->first->url;
-            $imginfo = pathinfo($imgurl);
-            $file_name = $imginfo['dirname'] . DIRECTORY_SEPARATOR . $imginfo['filename'];
-            if($resid){
+            // $resid = $this->pages->count($this->options['imagesFields'] ."*={image={$p->id},include=hidden");
+            // $imgurl = $p->image->first->url;
+            // $imginfo = pathinfo($imgurl);
+            // $file_name = $imginfo['dirname'] . DIRECTORY_SEPARATOR . $imginfo['filename'];
+            // if($resid){
                 $search_url = $this->config->urls->admin . "page/search/";
                 $search_param = "?field={$this->options['imagesFields']}&q=%7Bimage%3D{$p->id}&show_options=1&submit=Search&sort=relevance&display=title,path";
-                $sOutput .= "<a href='{$search_url}{$search_param}'>Pages found ({$resid})</a>";
-            }
+                $sOutput .= "<a href='{$search_url}{$search_param}'>" . $this->_('Search Pages') . "</a>";
+            // }
+            // $sOutput .= "";
             $sOutput .= '",';
 
             //$res = $this->pages->count("body%=:{$p->path},include=hidden");
@@ -496,7 +506,7 @@ _END;
                 }
             }
 
-            if(!count($form->getErrors()) && !$errors){
+            if(!count($form->getErrors()) && !$errors) {
                 // save uploaded files to new page and remove temp files
                 $files = explode('|',$form->get('ImagesUpload')->value);
                 foreach($files as $file){
@@ -509,8 +519,12 @@ _END;
                         $imagepage->title = $file_name;
                         $imagepage->save();
 
-                        $img = new PageImage($imagepage->image, $this->upload_path . $file);
-                        $imagepage->image->add($this->upload_path . $file);
+                        // set EXIF meta data
+                        $this->setMetaData($imagepage, $this->upload_path . $file);
+
+                        // create new PageImage to get max width and height setting of image field working
+                        $img = new PageImage($imagepage->get($this->options['imagesFieldName']), $this->upload_path . $file);
+                        $imagepage->get($this->options['imagesFieldName'])->add($img);
                         $form->get('ImagesUpload')->fileAdded($img);
 
                         unlink($this->upload_path . $file);
@@ -628,6 +642,15 @@ _END;
         return $field;
     }
 
+    public function ___setMetaData(Page $page, $file) {
+        // write exif data if field exists on page
+        if($page->template->fieldgroup->hasField($this->options['imagesEXIFField'])) {
+            $exif = exif_read_data($file, 0, true);
+            if($exif) {
+                $page->set($this->options['imagesEXIFField'], json_encode($exif));
+            }
+        }
+    }
 
     public function ___install() {
         $page = $this->pages->get('template=admin, name=imagesmanager');
@@ -699,6 +722,16 @@ _END;
         $field->set('collapsed', Inputfield::collapsedBlank);
         $field->label = 'Alternative description fieldname';
         $field->description = 'Alternative description field on image page. This way you can use Language Text field.';
+        $fields->append($field);
+
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'imagesEXIFField');
+        $field->attr('size',20);
+        $field->attr('value', $data['imagesEXIFField']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Meta-Data Textfield';
+        $field->description = 'Textarea field for storing meta data. Add field with this name to the image template.';
+        $field->description .= 'Images Manager will look for this field an store EXIF data if any found.';
         $fields->append($field);
 
         $field = $modules->get('InputfieldText');
