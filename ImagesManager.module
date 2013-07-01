@@ -39,7 +39,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         return array(
             'title' => 'Images Manager',
             'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
-            'version' => 3,
+            'version' => 4,
             'href' => '',
             'author' => 'Soma',
             'permission' => 'page-edit',
@@ -523,7 +523,7 @@ _END;
                         $this->setMetaData($imagepage, $this->upload_path . $file);
 
                         // create new PageImage to get max width and height setting of image field working
-                        $img = new PageImage($imagepage->get($this->options['imagesFieldName']), $this->upload_path . $file);
+                        $img = new Pageimage($imagepage->get($this->options['imagesFieldName']), $this->upload_path . $file);
                         $imagepage->get($this->options['imagesFieldName'])->add($img);
                         $form->get('ImagesUpload')->fileAdded($img);
 
@@ -739,8 +739,8 @@ _END;
         $field->attr('size',50);
         $field->attr('value', $data['imagesFields']);
         $field->set('collapsed', Inputfield::collapsedBlank);
-        $field->label = 'Textfields used for searching images on pages';
-        $field->description = 'Add one or more fields separated by a pipe body|sidebar.';
+        $field->label = 'Textarea fields you want to use the ImagesManager on.';
+        $field->description = 'Add one or more fields separated by a pipe body|sidebar. A button will appear above those fields';
         $fields->append($field);
 
         $field = $modules->get('InputfieldText');
@@ -759,15 +759,6 @@ _END;
         $field->label = 'Max files';
         $field->description = 'Set the maximum files may uploaded using Images Manager.';
         $fields->append($field);
-
-        // $field = $modules->get('InputfieldText');
-        // $field->attr('name', 'maxFilesize');
-        // $field->attr('size', 10);
-        // $field->attr('value', $data['maxFilesize']);
-        // $field->set('collapsed', Inputfield::collapsedBlank);
-        // $field->label = 'Max file upload size in MB';
-        // $field->description = 'Set the maximum upload file size for the images upload.';
-        // $fields->append($field);
 
         return $fields;
     }

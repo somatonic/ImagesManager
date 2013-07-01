@@ -1,4 +1,4 @@
-## Images Manager 0.0.2 alpha
+## Images Manager 0.0.4 alpha
 
 This module allows you to manage images from one central repository. You create a root page "/images/" where you can then add categories and images as pages. From there the new admin page created "ImagesManager" will show categories and images added in a ajax data table, from where you can see and search/filter all images, upload and create new categories and edit images too.
 
@@ -50,6 +50,7 @@ Now you can use the ImagesManager to add categories and images. But you can also
 
 The root path, template names and fields are configurable in the module settings.
 
+To give access to the ImagesManager functionality you can create and add a new permission "images-manager" to the roles you want the user to see and use ImagesManager.
 
 ### How to install the module:
 

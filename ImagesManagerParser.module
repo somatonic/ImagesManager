@@ -26,8 +26,8 @@ class ImagesManagerParser extends WireData implements Module {
 
         return array(
             'title' => 'Images Manager Parser',
-            'version' => 2,
-            'summary' => 'Add Images Manager Overlay to Textarea Fields, parses textarea to abstracts image tags saved in DB.',
+            'version' => 3,
+            'summary' => 'Add ImagesManager button to textarea fields defined in ImagesManager module, parses textarea to abstracts image tags saved in DB.',
             'href' => '',
             'author' => 'Soma',
             'singular' => true,
@@ -65,14 +65,21 @@ class ImagesManagerParser extends WireData implements Module {
         // add button to textarea fields
         $field = $event->object;
         $fieldset = $event->return;
-        $href = $this->pages->get(2)->find('name=imagesmanager')->first()->url;
+
+        if(!$this->user->isSuperuser() && !$this->user->hasPermission("images-manager")) return;
+
+        // get text fields config
+        $field_config_arr = explode("|",$this->options['imagesFields']);
+        if(!in_array("$field->name", $field_config_arr)) return;
+
+        $href = $this->pages->get(2)->find('name=imagesmanager,include=all')->first()->url;
         $btn = $this->modules->get('InputfieldButton');
         $btn->href = $href;
         $btn->attr('id','imagesmanager_' . $field->name);
         $btn->value = $this->_('Images Manager');
         $class = $btn->attr('class');
         $btn->attr('class', $class .' imagesmanager_fancybox');
-        // add a "Hello World" paragraph right before the closing body tag
+
         $event->return = str_replace($event->return, $btn->render() .'<br/>'. $event->return , $event->return);
     }
 
