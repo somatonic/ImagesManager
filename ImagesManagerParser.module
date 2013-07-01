@@ -162,14 +162,14 @@ class ImagesManagerParser extends WireData implements Module {
 
                 $width_attr = '';
                 $height_attr = '';
-                if($width_selector->value && $height_selector->value) {
+                if($width_selector && $width_selector->value && $height_selector && $height_selector->value) {
                     $img = $image->size($width_selector->value, $height_selector->value)->url;
                     $width_attr = ' width="' . $width_selector->value . '"';
                     $height_attr = ' height="' . $height_selector->value . '"';
-                } else if($width_selector->value) {
+                } else if($width_selector && $width_selector->value) {
                     $img = $image->size($width_selector->value,0)->url;
                     $width_attr = ' width="' . $width_selector->value . '"';
-                } else if($height_selector->value) {
+                } else if($height_selector && $height_selector->value) {
                     $img = $image->size(0,$height_selector->value)->url;
                     $height_attr = ' height="' . $height_selector->value . '"';
                 } else {
