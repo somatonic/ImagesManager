@@ -178,19 +178,19 @@ class ImagesManagerParser extends WireData implements Module {
 
 
                 $class_attr = '';
-                if($class_selector->value){
+                if($class_selector && $class_selector->value){
                     $class_attr .= ' class="' . $class_selector->value . '"';
                 }
 
                 $rel_attr = '';
                 $rel_selector = $selectors->get("field=rel");
-                if($rel_selector->value){
+                if($rel_selector && $rel_selector->value){
                     $rel_attr = ' rel="' . $rel_selector->value . '"';
                 }
 
                 $id_attr = '';
                 $id_selector = $selectors->get("field=id");
-                if($id_selector->value){
+                if($id_selector && $id_selector->value){
                     $id_attr = ' id="' . $id_selector->value . '"';
                 }
 
