@@ -30,6 +30,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         'imagesDescriptionField' => 'image_description',
         'imagesEXIFField' => 'image_exif',
         'imagesFields' => 'body|sidebar',
+        'textareaFields' => null,
         'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
         'maxFiles' => 50,
         'maxFilesize' => 32
@@ -39,7 +40,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         return array(
             'title' => 'Images Manager',
             'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
-            'version' => 4,
+            'version' => 5,
             'href' => '',
             'author' => 'Soma',
             'permission' => 'page-edit',
@@ -679,6 +680,9 @@ _END;
         $fields = new InputfieldWrapper();
         $modules = wire('modules');
 
+        $fieldset = $modules->get("InputfieldFieldset");
+        $fieldset->label = "Image template & field settings";
+
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'imagesRoot');
         $field->attr('size',20);
@@ -686,7 +690,7 @@ _END;
         $field->set('collapsed', Inputfield::collapsedBlank);
         $field->label = 'Root Images Page URL';
         $field->description = 'The URL of the root page where the images are stored.';
-        $fields->append($field);
+        $fieldset->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'imagesPageTemplate');
@@ -695,7 +699,7 @@ _END;
         $field->set('collapsed', Inputfield::collapsedBlank);
         $field->label = 'Image Templatename';
         $field->description = 'Template to use for the images.';
-        $fields->append($field);
+        $fieldset->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'imagesFieldName');
@@ -704,7 +708,7 @@ _END;
         $field->set('collapsed', Inputfield::collapsedBlank);
         $field->label = 'Image Field';
         $field->description = 'Image field name you use for the image template. It will get field settings from this field to configure image upload in Images Manager. Allowed image extensions, max width and height.';
-        $fields->append($field);
+        $fieldset->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'imagesCategoryTemplate');
@@ -713,7 +717,7 @@ _END;
         $field->set('collapsed', Inputfield::collapsedBlank);
         $field->label = 'Image Category Templatename';
         $field->description = 'Template to use for the images categories.';
-        $fields->append($field);
+        $fieldset->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'imagesDescriptionField');
@@ -722,7 +726,7 @@ _END;
         $field->set('collapsed', Inputfield::collapsedBlank);
         $field->label = 'Alternative description fieldname';
         $field->description = 'Alternative description field on image page. This way you can use Language Text field.';
-        $fields->append($field);
+        $fieldset->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'imagesEXIFField');
@@ -732,15 +736,17 @@ _END;
         $field->label = 'Meta-Data Textfield';
         $field->description = 'Textarea field for storing meta data. Add field with this name to the image template.';
         $field->description .= 'Images Manager will look for this field an store EXIF data if any found.';
-        $fields->append($field);
+        $fieldset->append($field);
 
-        $field = $modules->get('InputfieldText');
-        $field->attr('name', 'imagesFields');
-        $field->attr('size',50);
-        $field->attr('value', $data['imagesFields']);
-        $field->set('collapsed', Inputfield::collapsedBlank);
-        $field->label = 'Textarea fields you want to use the ImagesManager on.';
-        $field->description = 'Add one or more fields separated by a pipe body|sidebar. A button will appear above those fields';
+        $fields->append($fieldset);
+
+        $field = $modules->get('InputfieldAsmSelect');
+        $field->attr('name', 'textareaFields');
+        $field->attr('value', $data['textareaFields']);
+        $textareafields = wire("fields")->find("type=FieldtypeTextarea|FieldtypeTextareaLanguage");
+        foreach($textareafields as $f) $field->addOption($f->id,$f->name);
+        $field->label = 'Textarea fields you want to use the ImagesManager on. A button will appear above those fields.';
+        $field->description = 'Add one or more textarea fields from the select.';
         $fields->append($field);
 
         $field = $modules->get('InputfieldText');

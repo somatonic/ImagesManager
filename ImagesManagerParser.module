@@ -26,7 +26,7 @@ class ImagesManagerParser extends WireData implements Module {
 
         return array(
             'title' => 'Images Manager Parser',
-            'version' => 3,
+            'version' => 4,
             'summary' => 'Add ImagesManager button to textarea fields defined in ImagesManager module, parses textarea to abstracts image tags saved in DB.',
             'href' => '',
             'author' => 'Soma',
@@ -38,7 +38,7 @@ class ImagesManagerParser extends WireData implements Module {
 
 
     public function init(){
-        $options = $this->modules->get('ImagesManager')->options;
+        $options = $this->modules->getModuleConfigData('ImagesManager');
         $this->options = $options;
 
         // add hook to replace image tags to id tags and back
@@ -63,19 +63,18 @@ class ImagesManagerParser extends WireData implements Module {
 
     public function addImagesManager(HookEvent $event) {
         // add button to textarea fields
-        $field = $event->object;
+        $inputfield = $event->object;
         $fieldset = $event->return;
 
         if(!$this->user->isSuperuser() && !$this->user->hasPermission("images-manager")) return;
 
         // get text fields config
-        $field_config_arr = explode("|",$this->options['imagesFields']);
-        if(!in_array("$field->name", $field_config_arr)) return;
+        if(!in_array($this->fields->get($inputfield->name)->id, $this->options['textareaFields'])) return;
 
         $href = $this->pages->get(2)->find('name=imagesmanager,include=all')->first()->url;
         $btn = $this->modules->get('InputfieldButton');
         $btn->href = $href;
-        $btn->attr('id','imagesmanager_' . $field->name);
+        $btn->attr('id','imagesmanager_' . $inputfield->name);
         $btn->value = $this->_('Images Manager');
         $class = $btn->attr('class');
         $btn->attr('class', $class .' imagesmanager_fancybox');
@@ -90,6 +89,10 @@ class ImagesManagerParser extends WireData implements Module {
 
         $arguments = $event->arguments; // $page, $field, $value
         $value = $arguments[2];
+        $field = $arguments[1];
+
+        if(!in_array($field->id, $this->options['textareaFields'])) return;
+
         if(empty($value)) return;
         //if(!strlen($value)) return;
 
@@ -112,6 +115,9 @@ class ImagesManagerParser extends WireData implements Module {
 
         $arguments = $event->arguments;
         $value = $arguments[2];
+        $field = $arguments[1];
+
+        if(!in_array($field->id, $this->options['textareaFields'])) return;
 
         if(empty($value)) return;
 
