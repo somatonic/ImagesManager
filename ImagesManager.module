@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Images Manager 0.0.3 ProcessWire2
+ * Images Manager ProcessWire2
  *
  * @author Philipp 'Soma' Urlich, philipp at urlich dot ch
  *
@@ -31,16 +31,15 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         'imagesEXIFField' => 'image_exif',
         'imagesFields' => 'body|sidebar',
         'textareaFields' => null,
-        'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
+        //'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
         'maxFiles' => 50,
-        'maxFilesize' => 32
     );
 
     public static function getModuleInfo() {
         return array(
             'title' => 'Images Manager',
             'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
-            'version' => 5,
+            'version' => 6,
             'href' => '',
             'author' => 'Soma',
             'permission' => 'page-edit',
@@ -51,18 +50,20 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
     public function init() {
 
-        // define options for this module
+        // set options for this module
         $this->options = array_merge(self::$defaults, $this->data);
 
         if($this->input->post->modal) {
             $this->input->get->modal = 1;
         }
 
-        if(strpos($this->options['tmpUploadPath'], '/') === 0){
-            $this->upload_path = $this->options['tmpUploadPath'];
-        } else {
-            $this->upload_path = $this->config->paths->root . $this->options['tmpUploadPath'];
-        }
+        parent::init();
+
+        // if(strpos($this->options['tmpUploadPath'], '/') === 0){
+        //     $this->upload_path = $this->options['tmpUploadPath'];
+        // } else {
+        //     $this->upload_path = $this->config->paths->root . $this->options['tmpUploadPath'];
+        // }
 
     }
 
@@ -76,8 +77,6 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
         $this->setFuel('processHeadline', $minfo['title']);
 
-        $this->addScripts();
-
         // add necessary admin page scripts
         // ---------------------------------------------------------------------------------
         $this->config->styles->append( $this->config->urls->ImagesManager . 'css/demo_table.css' );
@@ -85,7 +84,6 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         $this->config->styles->append( $this->config->urls->ImagesManager . 'js/fancybox/jquery.fancybox.css' );
         $this->config->scripts->append( $this->config->urls->ImagesManager . 'js/dataTables/jquery.dataTables.min.js' );
         $this->config->scripts->append( $this->config->urls->ImagesManager . 'js/fancybox/jquery.fancybox.pack.js' );
-        $this->config->scripts->append( $this->config->urls->ImagesManager . 'ImagesManager.js' );
 
         $modal = $this->input->get->modal ? '?modal=1' : '' ;
 
@@ -425,12 +423,12 @@ _END;
 
     public function executeUpload(){
 
-        $this->addScripts();
-
         // create temp path if it isn't there already
-        if(!is_dir($this->upload_path)) {
-            if(!wireMkdir($this->upload_path)) throw new WireException('No upload path!');
-        }
+        // if(!is_dir($this->upload_path)) {
+        //     if(!wireMkdir($this->upload_path)) throw new WireException('No upload path!');
+        // }
+
+        $this->config->js("im_alert_parentpage", $this->_("Please select a parent first."));
 
         $minfo = self::getModuleInfo();
 
@@ -441,6 +439,7 @@ _END;
 
         $form = $this->modules->get('InputfieldForm');
         $form->action = './';
+        $form->attr("id",'ImagesManagerUploadForm');
         $form->method = 'post';
 
         if($this->input->get->modal){
@@ -452,15 +451,17 @@ _END;
 
         $field = $this->modules->get('InputfieldPageListSelect');
         $field->label = $this->_('Select category');
+        $field->required = 1;
         $field->description = $this->_('First select the category to want to upload images to.');
         $field->parent_id = $this->pages->get($this->options['imagesRoot'])->id;
-        $field->attr('id+name','ParentPage');
+        $field->attr('name','ParentPage');
         $form->append($field);
 
         $field = $this->modules->get('InputfieldImage');
         $field->label = $this->_('Upload Images');
-        $field->description = sprintf($this->_('Upload max %s images'),$this->options['maxFiles']);
-        $field->attr('id+name','ImagesUpload');
+        $field->description = sprintf($this->_('Upload max %s images at once.'),$this->options['maxFiles']);
+        $field->attr('name','ImagesUpload');
+        $field->showIf = "ParentPage>0";
 
         $image_field = $this->fields->get($this->options['imagesFieldName']);
         if(!$image_field) throw new WireException("Image field could not be found. Make sure the image field '".$this->options["imagesFieldName"]."' exists.");
@@ -468,10 +469,12 @@ _END;
         $field->required = 1;
         $field->maxWidth = $image_field->maxWidth;
         $field->maxHeight = $image_field->maxHeight;
-        $field->destinationPath = $this->upload_path;
+        // $field->destinationPath = $this->upload_path;
+        // $field->destinationPath = $this->page->filesManager->path;
         $field->extensions = $image_field->extensions;
         $field->maxFiles = $this->options['maxFiles'];
-        // $field->maxFilesize = $this->options['maxFilesize'] * 1024 * 1024;
+        // make sure the value is of type Pageimages
+        $field->attr("value", new Pageimages($this->page));
         $form->append($field);
 
         $field = $this->modules->get('InputfieldSubmit');
@@ -511,7 +514,8 @@ _END;
                 // save uploaded files to new page and remove temp files
                 $files = explode('|',$form->get('ImagesUpload')->value);
                 foreach($files as $file){
-                    if($file && file_exists($this->upload_path . $file)){
+                    // if($file && file_exists($this->upload_path . $file)){
+                    if($file && file_exists($this->page->filesManager->path . $file)){
                         $imagepage = new Page();
                         $imagepage->template = $this->options['imagesPageTemplate'];
                         $imagepage->parent = $this->pages->get($this->input->post->ParentPage);
@@ -522,14 +526,24 @@ _END;
 
                         // set EXIF meta data
                         $this->setMetaData($imagepage, $this->upload_path . $file);
+                        // $this->setMetaData($imagepage, $this->page->filesManager->path . $file);
 
                         // create new PageImage to get max width and height setting of image field working
-                        $img = new Pageimage($imagepage->get($this->options['imagesFieldName']), $this->upload_path . $file);
+                        // $img = new Pageimage($imagepage->get($this->options['imagesFieldName']), $this->upload_path . $file);
+                        $img = new Pageimage($imagepage->get($this->options['imagesFieldName']), $this->page->filesManager->path . $file);
                         $imagepage->get($this->options['imagesFieldName'])->add($img);
-                        $form->get('ImagesUpload')->fileAdded($img);
 
-                        unlink($this->upload_path . $file);
+                        // unlink($this->upload_path . $file);
+                        unlink($this->page->filesManager->path . $file);
                         $imagepage->save();
+                    }
+                }
+            } else {
+                // remove uploaded files
+                $files = explode('|',$form->get('ImagesUpload')->value);
+                foreach($files as $file){
+                    if($file && file_exists($this->page->filesManager->path . $file)){
+                        unlink($this->page->filesManager->path . $file);
                     }
                 }
             }
@@ -749,13 +763,13 @@ _END;
         $field->description = 'Add one or more textarea fields from the select.';
         $fields->append($field);
 
-        $field = $modules->get('InputfieldText');
-        $field->attr('name', 'tmpUploadPath');
-        $field->attr('value', $data['tmpUploadPath']);
-        $field->set('collapsed', Inputfield::collapsedBlank);
-        $field->label = 'Temp upload path';
-        $field->description = "Define another server path for uploading images temporarely. If not using absolute '/path' it will prepend 'config->paths->root' to the path.";
-        $fields->append($field);
+        // $field = $modules->get('InputfieldText');
+        // $field->attr('name', 'tmpUploadPath');
+        // $field->attr('value', $data['tmpUploadPath']);
+        // $field->set('collapsed', Inputfield::collapsedBlank);
+        // $field->label = 'Temp upload path';
+        // $field->description = "Define another server path for uploading images temporarely. If not using absolute '/path' it will prepend 'config->paths->root' to the path.";
+        // $fields->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'maxFiles');
