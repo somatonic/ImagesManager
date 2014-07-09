@@ -646,11 +646,11 @@ _END;
 
 
     public function ___listCategoryTree($children,$field,$ind = '') {
-        $ind .= ' –– ';
+        $ind .= '—';
         foreach($children as $page) {
             // $countproducts = $this->pages->count("parent=$page,template=" . $this->options['imagesPageTemplate']);
             $countproducts = $page->children("template=" . $this->options['imagesPageTemplate'])->count();
-            $field->addOption($page->id,$ind.$page->title ." ($countproducts)");
+            $field->addOption($page->id, " " . $ind . " " . $page->title ." ($countproducts)");
             $children = $page->children('template=' . $this->options['imagesCategoryTemplate']);
             if(count($children)) {
                 $this->listCategoryTree($children,$field,$ind);
