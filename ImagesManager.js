@@ -120,9 +120,6 @@ $(function(){
             e.preventDefault();
         });
 
-        // $("#Inputfield_ParentPage").attr("style","display: block!important;");
-        $("#Inputfield_ParentPage").on("change",function() {
-            $(this).val(1);
-        });
+
     }
 });

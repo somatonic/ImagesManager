@@ -39,7 +39,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         return array(
             'title' => 'Images Manager',
             'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
-            'version' => 6,
+            'version' => 7,
             'href' => '',
             'author' => 'Soma',
             'permission' => 'page-edit',
@@ -518,7 +518,7 @@ _END;
                     if($file && file_exists($this->page->filesManager->path . $file)){
                         $imagepage = new Page();
                         $imagepage->template = $this->options['imagesPageTemplate'];
-                        $imagepage->parent = $this->pages->get($this->input->post->ParentPage);
+                        $imagepage->parent = (int) $this->input->post->ParentPage;
                         $info = pathinfo($file);
                         $file_name = $info['filename'];
                         $imagepage->title = $file_name;
