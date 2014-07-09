@@ -29,9 +29,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         'imagesCategoryTemplate' => 'image-category',
         'imagesDescriptionField' => 'image_description',
         'imagesEXIFField' => 'image_exif',
-        'imagesFields' => 'body|sidebar',
         'textareaFields' => null,
-        //'tmpUploadPath' => 'site/assets/files/.tmp_uploads/',
         'maxFiles' => 50,
     );
 
@@ -42,7 +40,6 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
             'version' => 7,
             'href' => '',
             'author' => 'Soma',
-            'permission' => 'page-edit',
             'installs' => array('ImagesManagerParser'),
             'permission' => 'images-manager'
         );
@@ -355,37 +352,23 @@ _END;
              * col pages found
              */
             $sOutput .= '"';
-            // $resid = $this->pages->count($this->options['imagesFields'] ."*={image={$p->id},include=hidden");
-            // $imgurl = $p->image->first->url;
-            // $imginfo = pathinfo($imgurl);
-            // $file_name = $imginfo['dirname'] . DIRECTORY_SEPARATOR . $imginfo['filename'];
-            // if($resid){
-                $search_url = $this->config->urls->admin . "page/search/";
-                $search_param = "?field={$this->options['imagesFields']}&q=%7Bimage%3D{$p->id}&show_options=1&submit=Search&sort=relevance&display=title,path";
-                $sOutput .= "<a href='{$search_url}{$search_param}'>" . $this->_('search') . "</a>";
-            // }
-            // $sOutput .= "";
+
+            $search_url = wire("config")->urls->admin . "page/search/";
+            $fieldsArray = $this->_convertFieldsIdToName($this->options['textareaFields']);
+            $fieldsSearchStr = implode("+", $fieldsArray);
+
+            $search_param = "?field={$fieldsSearchStr}";
+            $search_param .= "&q=image+{$p->id}";
+            $search_param .= "&operator=8";
+            $search_param .= "&show_options=1";
+            $search_param .= "&submit=Search";
+            $search_param .= "&sort=relevance";
+            $search_param .= "&display=title,path";
+
+            $sOutput .= "<a href='{$search_url}{$search_param}'>" . $this->_('search') . "</a>";
+
             $sOutput .= '",';
 
-            //$res = $this->pages->count("body%=:{$p->path},include=hidden");
-            //$respath = $this->pages->count("body%=$file_name,include=hidden");
-
-            // if($res) {
-            //  $search_url = $this->config->urls->admin . "page/search/";
-            //  $sOutput .= ' <a href=\"'.$search_url.'?field=body&operator=7&q=:'.$p->path.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Paths ('.$res.')</a>';
-            // }
-
-            // if($respath) {
-            //  $search_url = $this->config->urls->admin . "page/search/";
-            //  $sOutput .= ' <a href=\"'.$search_url.'?field=body&operator=7&q='.$file_name.'&show_options=1&submit=Search&sort=relevance&display=title,path\">Inline ('.$respath.')</a>';
-            // }
-
-            // user modified
-            // if($this->user->hasRole('superuser')) {
-            //  $sOutput .= '"<a href=\"/processwire/access/users/edit/?id='.$p->modifiedUser.'\">'.$p->modifiedUser->name.'</a>",';
-            // } else {
-            //  $sOutput .= '"'.$p->modifiedUser->name.'",';
-            // }
 
             /**
              * col filesize
@@ -644,6 +627,20 @@ _END;
         return $out;
     }
 
+    /**
+     * Convert Array of field id to their names
+     * @param  array  $fields   array of field id's
+     * @return array  $namedArray   array of field names
+     */
+    private function _convertFieldsIdToName(array $fields) {
+        $namedArray = array();
+        foreach($fields as $f) {
+            $namedArray[] = $this->fields->get((int)$f);
+        }
+        return $namedArray;
+    }
+
+
     public function ___listCategoryTree($children,$field,$ind = '') {
         $ind .= ' –– ';
         foreach($children as $page) {
@@ -763,14 +760,6 @@ _END;
         $field->label = 'Textarea fields you want to use the ImagesManager on. A button will appear above those fields.';
         $field->description = 'Add one or more textarea fields from the select.';
         $fields->append($field);
-
-        // $field = $modules->get('InputfieldText');
-        // $field->attr('name', 'tmpUploadPath');
-        // $field->attr('value', $data['tmpUploadPath']);
-        // $field->set('collapsed', Inputfield::collapsedBlank);
-        // $field->label = 'Temp upload path';
-        // $field->description = "Define another server path for uploading images temporarely. If not using absolute '/path' it will prepend 'config->paths->root' to the path.";
-        // $fields->append($field);
 
         $field = $modules->get('InputfieldText');
         $field->attr('name', 'maxFiles');

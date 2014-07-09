@@ -120,6 +120,18 @@ $(function(){
             e.preventDefault();
         });
 
+        /**
+         * Workaround for ProcessPageList.js not working with inputfield dependencies
+         * change() event getting triggered before value set.
+         * Fixed in PW: https://github.com/ryancramerdesign/ProcessWire/pull/469
+         */
+        //$("#Inputfield_ParentPage").attr("style","display: block!important;");
+        $("#Inputfield_ParentPage").on("change",function() {
+            var that = $(this);
+            setTimeout(function(){
+                that.trigger("change");
+            }, 300);
+        });
 
     }
 });
