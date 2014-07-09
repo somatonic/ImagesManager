@@ -233,8 +233,8 @@ _END;
         if(isset($this->input->get->filter_category)
            && $this->input->get->filter_category != 'all'
            && $this->input->get->filter_category != '') {
-            $category_name = $this->sanitizer->selectorValue($this->input->get->filter_category);
-            $category_page = $this->pages->get("template=".$this->options['imagesCategoryTemplate'].",name=$category_name");
+            $category_id = (int) $this->sanitizer->selectorValue($this->input->get->filter_category);
+            $category_page = $this->pages->get("template=".$this->options['imagesCategoryTemplate'].",id=$category_id");
             $category = "parent=" . $category_page . ",";
             // save template filter in session
             $this->session->categoryfilter = $this->input->get->filter_category;
@@ -647,8 +647,9 @@ _END;
     public function ___listCategoryTree($children,$field,$ind = '') {
         $ind .= ' –– ';
         foreach($children as $page) {
-            $countproducts = $this->pages->count("parent=$page,template=" . $this->options['imagesPageTemplate']);
-            $field->addOption($page->name,$ind.$page->title ." ($countproducts)");
+            // $countproducts = $this->pages->count("parent=$page,template=" . $this->options['imagesPageTemplate']);
+            $countproducts = $page->children("template=" . $this->options['imagesPageTemplate'])->count();
+            $field->addOption($page->id,$ind.$page->title ." ($countproducts)");
             $children = $page->children('template=' . $this->options['imagesCategoryTemplate']);
             if(count($children)) {
                 $this->listCategoryTree($children,$field,$ind);
