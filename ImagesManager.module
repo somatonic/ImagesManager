@@ -404,12 +404,7 @@ _END;
         return $sOutput;
     }
 
-    public function executeUpload(){
-
-        // create temp path if it isn't there already
-        // if(!is_dir($this->upload_path)) {
-        //     if(!wireMkdir($this->upload_path)) throw new WireException('No upload path!');
-        // }
+    public function executeUpload() {
 
         $this->config->js("im_alert_parentpage", $this->_("Please select a parent first."));
 
@@ -432,12 +427,20 @@ _END;
             $form->append($field);
         }
 
-        $field = $this->modules->get('InputfieldPageListSelect');
+        $field = $this->modules->get('InputfieldSelect');
+        // $field = $this->modules->get('InputfieldPageListSelect');
         $field->label = $this->_('Select category');
         $field->required = 1;
         $field->description = $this->_('First select the category to want to upload images to.');
-        $field->parent_id = $this->pages->get($this->options['imagesRoot'])->id;
         $field->attr('name','ParentPage');
+        $children = $this->pages->get($this->options['imagesRoot'])->children("include=hidden");
+        if($children->count()){
+            $field->addOption("", $this->_("select category"));
+            $this->listCategoryTree($children,$field);
+        } else {
+            $field->addOption("", $this->_("no categories found!"));
+            $this->error($this->_("There's no image category yet."));
+        }
         $form->append($field);
 
         $field = $this->modules->get('InputfieldImage');
@@ -452,11 +455,10 @@ _END;
         $field->required = 1;
         $field->maxWidth = $image_field->maxWidth;
         $field->maxHeight = $image_field->maxHeight;
-        // $field->destinationPath = $this->upload_path;
-        // $field->destinationPath = $this->page->filesManager->path;
         $field->extensions = $image_field->extensions;
         $field->maxFiles = $this->options['maxFiles'];
         // make sure the value is of type Pageimages
+
         $field->attr("value", new Pageimages($this->page));
         $form->append($field);
 
@@ -472,19 +474,17 @@ _END;
         $field->href = "../$modal";
         $form->append($field);
 
-        if($this->input->post->submit){
+        if($this->input->post->submit) {
 
             $errors = false;
             $form->processInput($this->input->post);
+            $parentPageField = $form->get('ParentPage');
+            $parentPageValue = $parentPageField->attr("value");
 
             // hacky way to get upload max files errors on image fieltypes
             // since it uses notices to populate errors (?? TODO ask Ryan)
-
-            if($this->notices->hasErrors() || $this->input->post->ParentPage == ''){
+            if($this->notices->hasErrors()) {
                 $errors = true;
-                if(!$this->input->post->ParentPage){
-                    $form->get('ParentPage')->error($this->_('Please select a category to upload images.'));
-                }
                 // remove unwanted messages keeping only the error message
                 foreach($this->notices as $notice){
                     if($notice instanceof NoticeMessage){
@@ -501,7 +501,7 @@ _END;
                     if($file && file_exists($this->page->filesManager->path . $file)){
                         $imagepage = new Page();
                         $imagepage->template = $this->options['imagesPageTemplate'];
-                        $imagepage->parent = (int) $this->input->post->ParentPage;
+                        $imagepage->parent = $parentPageValue;
                         $info = pathinfo($file);
                         $file_name = $info['filename'];
                         $imagepage->title = $file_name;
@@ -509,26 +509,30 @@ _END;
 
                         // set EXIF meta data
                         $this->setMetaData($imagepage, $this->upload_path . $file);
-                        // $this->setMetaData($imagepage, $this->page->filesManager->path . $file);
 
                         // create new PageImage to get max width and height setting of image field working
                         // $img = new Pageimage($imagepage->get($this->options['imagesFieldName']), $this->upload_path . $file);
                         $img = new Pageimage($imagepage->get($this->options['imagesFieldName']), $this->page->filesManager->path . $file);
                         $imagepage->get($this->options['imagesFieldName'])->add($img);
-
-                        // unlink($this->upload_path . $file);
                         unlink($this->page->filesManager->path . $file);
                         $imagepage->save();
                     }
                 }
+                // redirect to the form
+                $this->session->redirect($this->page->url . "upload/");
+
             } else {
-                // remove uploaded files
+                // remove uploaded files in case of an error processing the form
                 $files = explode('|',$form->get('ImagesUpload')->value);
-                foreach($files as $file){
-                    if($file && file_exists($this->page->filesManager->path . $file)){
-                        unlink($this->page->filesManager->path . $file);
+                if(count($files)){
+                    foreach($files as $file){
+                        if($file && file_exists($this->page->filesManager->path . $file)){
+                            unlink($this->page->filesManager->path . $file);
+                        }
                     }
+                    $this->message($this->_("Form contained errors. Removed uploaded images."));
                 }
+
             }
         }
 
@@ -756,7 +760,7 @@ _END;
         $field->attr('name', 'textareaFields');
         $field->attr('value', $data['textareaFields']);
         $textareafields = wire("fields")->find("type=FieldtypeTextarea|FieldtypeTextareaLanguage");
-        foreach($textareafields as $f) $field->addOption($f->id,$f->name);
+        foreach($textareafields as $f) $field->addOption($f->id, $f->name);
         $field->label = 'Textarea fields you want to use the ImagesManager on. A button will appear above those fields.';
         $field->description = 'Add one or more textarea fields from the select.';
         $fields->append($field);

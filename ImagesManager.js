@@ -111,8 +111,10 @@ $(function(){
     if($('#ImagesManagerUploadForm').size()){
 
         $('#ImagesManagerUploadForm').on("submit", function(e){
-            if($(this).find("input[name='ParentPage']").val() == ''){
+            var ParentPageField = $(this).find("select[name='ParentPage']");
+            if(ParentPageField.val() == ""){
                 alert(config.im_alert_parentpage);
+                ParentPageField.focus();
                 return false;
             } else {
                 return true;
@@ -126,12 +128,13 @@ $(function(){
          * Fixed in PW: https://github.com/ryancramerdesign/ProcessWire/pull/469
          */
         //$("#Inputfield_ParentPage").attr("style","display: block!important;");
-        $("#Inputfield_ParentPage").on("change",function() {
-            var that = $(this);
-            setTimeout(function(){
-                that.trigger("change");
-            }, 300);
-        });
+        // $("#Inputfield_ParentPage").on("change",function() {
+        //     var that = $(this);
+        //     alert($(this).val());
+        //     // setTimeout(function(){
+        //     //     that.trigger("change");
+        //     // }, 300);
+        // });
 
     }
 });
