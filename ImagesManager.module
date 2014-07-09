@@ -84,17 +84,27 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
         $modal = $this->input->get->modal ? '?modal=1' : '' ;
 
-        $create = $this->modules->get('InputfieldButton');
-        $create->attr('value',$this->_('Upload images'));
-        $create->attr('id','uploadimages');
-        $create->href = "./upload/$modal";
+        // actions fieldset with buttons to upload and add category
+        // using IntpufieldMarkup to add the buttons and render it in a fieldset
+        // this is easiest way to get floated buttons in one field
+        // ---------------------------------------------------------------------------------
 
-        $create_cat = $this->modules->get('InputfieldButton');
-        $create_cat->attr('value',$this->_('New category'));
-        $create_cat->attr('id','addcategory');
-        $create_cat->href = "./addcategory/$modal";
+        $actions = $this->modules->get("InputfieldFieldset");
+        $markup = $this->modules->get("InputfieldMarkup");
+        $markup->label = "Actions";
 
+        $field = $this->modules->get('InputfieldButton');
+        $field->attr('value',$this->_('Upload images'));
+        $field->attr('id','uploadimages');
+        $field->href = "./upload/$modal";
+        $markup->value .= $field->render();
 
+        $field = $this->modules->get('InputfieldButton');
+        $field->attr('value',$this->_('New category'));
+        $field->attr('id','addcategory');
+        $field->href = "./addcategory/$modal";
+        $markup->value .= $field->render();
+        $actions->add($markup);
 
         // multilanguage support so it can be translated, string as used in DataTable js
         // ---------------------------------------------------------------------------------
@@ -115,10 +125,13 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
         // output js config object for this module
         // ---------------------------------------------------------------------------------
+
         $this->config->js($this->className(), $lang);
+
 
         // build form for categories filtering
         // ---------------------------------------------------------------------------------
+
         $form = $this->modules->get('InputfieldForm');
         $form->id = 'filters';
         $form->method = 'get';
@@ -135,9 +148,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         $field->addOption('all', $this->_('All'));
         $field->attr('value',$this->session->categoryfilter ? $this->session->categoryfilter : '');
         $field->collapsed = Inputfield::collapsedNo;
-
         $this->listCategoryTree($this->pages->get($this->options['imagesRoot'])->children,$field);
-
         //add select to fieldset wrapper and from wrapper
         $form->add($field);
 
@@ -206,8 +217,9 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
 
 </script>
 _END;
-        // return markup for output
-        return $create->render() . $create_cat->render() . $form->render() . $tmarkup;
+
+        // return markup for output on admin page
+        return $actions->render() . $form->render() . $tmarkup;
 
     }
 
@@ -246,10 +258,21 @@ _END;
         //if(!$is_superuser) $selector .= "template!=admin,template=poduct,has_parent!=2,id!=2|7,";
         $selector .= 'template!=admin,template=' . $this->options['imagesPageTemplate'] . ',has_parent!=2,id!=2|7,';
 
+        // search query
         if( $this->input->get->sSearch ) {
             $q = $this->sanitizer->text($this->input->get->sSearch);
-            $selector .= "title|{$this->options['imagesFieldName']}.description|{$this->options['imagesDescriptionField']}%=$q,";
-            //$selector .= "title%=$q,";
+            // if(is_numeric($q) && strlen($q)){
+            //     $selector .= "id=$q,";
+            // } else {
+                if($this->options['imagesFieldName']){
+                    $selector .= "name|title|{$this->options['imagesFieldName']}.description";
+                }
+                if($this->templates->get($this->options['imagesPageTemplate'])->hasField($this->options['imagesDescriptionField'])){
+                    $selector .= "|{$this->options['imagesDescriptionField']}";
+                }
+                $selector .= "%=$q,";
+            // }
+
         }
 
         $sOrder = '';

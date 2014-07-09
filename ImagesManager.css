@@ -28,3 +28,7 @@
     position: absolute;
     z-index: 1;
 }
+
+.imagesManagerDataTable thead th div.DataTables_sort_wrapper{
+    color: inherit!important;
+}
