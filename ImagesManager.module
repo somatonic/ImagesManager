@@ -4,7 +4,6 @@
  * Images Manager ProcessWire2
  *
  * @author Philipp 'Soma' Urlich, philipp at urlich dot ch
- *
  * @date_created 01/04/2013
  *
  * ProcessWire 2.x
@@ -16,11 +15,25 @@
  *
  */
 
-
 class ImagesManager extends Process implements Module, ConfigurableModule {
 
-    //static $columns = array('id','image','title','categories','path','modified','modified_users_id','actions');
-    static $columns = array('id','image','title','parent','name','found','filesize','modified','actions');
+    /**
+     * getModuleInfo is a module required by all modules to tell ProcessWire about them
+     *
+     * @return array
+     *
+     */
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'Images Manager',
+            'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
+            'version' => 10,
+            'href' => '',
+            'author' => 'Soma',
+            'installs' => array('ImagesManagerParser'),
+            'permission' => 'images-manager'
+        );
+    }
 
     protected static $defaults = array(
         'imagesRoot' => '/images/',
@@ -31,408 +44,85 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         'imagesEXIFField' => 'image_exif',
         'textareaFields' => null,
         'maxFiles' => 50,
+        'listerLimit' => 20,
+        'listerDateFormat' => "Y.m.d H:i:s"
     );
 
-    public static function getModuleInfo() {
-        return array(
-            'title' => 'Images Manager',
-            'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
-            'version' => 7,
-            'href' => '',
-            'author' => 'Soma',
-            'installs' => array('ImagesManagerParser'),
-            'permission' => 'images-manager'
+    protected $columns = array(
+        "id" => array('ID'),// member nr
+        "image" => array('Image'), // anrede
+        "title" => array('Title'),
+        "parent" => array('Category'),
+        "imagetag" => array('Tag'),
+        "found" => array('Search'),
+        "modified" => array('Mod.'),
+        "actions" => array('')
+    );
+
+    protected $filters = array(
+        'sort',
+        'parent',
+        'searchquery'
         );
-    }
+
+    protected $selectorDefault;
 
     public function init() {
+
+        $this->modal = $this->input->get->modal ? '?modal=1' : '' ;
+        if($this->input->get->modal) {
+            $this->input->whitelist("modal", $this->input->get->modal);
+        }
+
+        $this->modules->MarkupAdminDataTable;
+        $this->modules->JqueryMagnific;
 
         // set options for this module
         $this->options = array_merge(self::$defaults, $this->data);
 
-        if($this->input->post->modal) {
-            $this->input->get->modal = 1;
-        }
+        // default selector for images pages search
+        $this->selectorDefault = "template={$this->options['imagesPageTemplate']}, include=all, limit={$this->options['listerLimit']}";
 
         parent::init();
-
-        // if(strpos($this->options['tmpUploadPath'], '/') === 0){
-        //     $this->upload_path = $this->options['tmpUploadPath'];
-        // } else {
-        //     $this->upload_path = $this->config->paths->root . $this->options['tmpUploadPath'];
-        // }
-
-    }
-
-    public function addScripts(){
-        $this->config->styles->append( $this->config->urls->ImagesManager . 'ImagesManager.css');
-    }
-
-    public function ___execute() {
-
-        $minfo = self::getModuleInfo();
-
-        $this->setFuel('processHeadline', $minfo['title']);
-
-        // add necessary admin page scripts
-        // ---------------------------------------------------------------------------------
-        $this->config->styles->append( $this->config->urls->ImagesManager . 'css/demo_table.css' );
-        $this->config->styles->append( $this->config->urls->ImagesManager . 'css/demo_table_jui.css' );
-        $this->config->styles->append( $this->config->urls->ImagesManager . 'js/fancybox/jquery.fancybox.css' );
-        $this->config->scripts->append( $this->config->urls->ImagesManager . 'js/dataTables/jquery.dataTables.min.js' );
-        $this->config->scripts->append( $this->config->urls->ImagesManager . 'js/fancybox/jquery.fancybox.pack.js' );
-
-        $modal = $this->input->get->modal ? '?modal=1' : '' ;
-
-        // actions fieldset with buttons to upload and add category
-        // using IntpufieldMarkup to add the buttons and render it in a fieldset
-        // this is easiest way to get floated buttons in one field
-        // ---------------------------------------------------------------------------------
-
-        $actions = $this->modules->get("InputfieldFieldset");
-        $markup = $this->modules->get("InputfieldMarkup");
-        $markup->label = "Actions";
-
-        $field = $this->modules->get('InputfieldButton');
-        $field->attr('value',$this->_('Upload images'));
-        $field->attr('id','uploadimages');
-        $field->href = "./upload/$modal";
-        $markup->value .= $field->render();
-
-        $field = $this->modules->get('InputfieldButton');
-        $field->attr('value',$this->_('New category'));
-        $field->attr('id','addcategory');
-        $field->href = "./addcategory/$modal";
-        $markup->value .= $field->render();
-        $actions->add($markup);
-
-        // multilanguage support so it can be translated, string as used in DataTable js
-        // ---------------------------------------------------------------------------------
-        $lang = array(
-            'sProcessing' => $this->_('loading...'),
-            'sLengthMenu' => $this->_('Show _MENU_ entries'),
-            'sZeroRecords' => $this->_('No search entries found'),
-            'sEmptyTable' => $this->_('No entries found'),
-            'sInfo' => $this->_('Show _START_ to _END_ of _TOTAL_ entries'),
-            'sInfoEmpty' => $this->_('Show 0 bis 0 von 0 entries'),
-            'sInfoFiltered' => $this->_('(Filtered of _MAX_ total entries)'),
-            'sSearch' => $this->_('Search:'),
-            'sFirst' => $this->_('First'),
-            'sPrevious' => $this->_('Back'),
-            'sNext' => $this->_('Next'),
-            'sLast' => $this->_('Last'),
-        );
-
-        // output js config object for this module
-        // ---------------------------------------------------------------------------------
-
-        $this->config->js($this->className(), $lang);
-
-
-        // build form for categories filtering
-        // ---------------------------------------------------------------------------------
-
-        $form = $this->modules->get('InputfieldForm');
-        $form->id = 'filters';
-        $form->method = 'get';
-        $form->action = './';
-
-
-        // generating the categories select
-        // ---------------------------------------------------------------------------------
-
-        $field = $this->modules->get('InputfieldSelect');
-        $field->attr('id+name', 'filter_category');
-        $field->label = $this->_('Filter by category');
-        $field->description = $this->_('All images of the category:');
-        $field->addOption('all', $this->_('All'));
-        $field->attr('value',$this->session->categoryfilter ? $this->session->categoryfilter : '');
-        $field->collapsed = Inputfield::collapsedNo;
-        $this->listCategoryTree($this->pages->get($this->options['imagesRoot'])->children,$field);
-        //add select to fieldset wrapper and from wrapper
-        $form->add($field);
-
-        // constructing default empty html markup table output
-        // ---------------------------------------------------------------------------------
-
-        $h_id = $this->_('ID');
-        $h_preview = $this->_('Preview');
-        $h_title = $this->_('Title');
-        $h_categories = $this->_('Categories');
-        $h_imagetag = $this->_('Imagetag');
-        $h_pagesfound = $this->_('Pages');
-        $h_size = $this->_('Size');
-        $h_modified = $this->_('Modified');
-        $h_actions = $this->_('Actions');
-
-        $out = '';
-        $tmarkup = <<<_END
-<table width="100%" class="imagesManagerDataTable display">
-        <col width="5%"/>
-        <col width="10%"/>
-        <col width="20%"/>
-        <col width="10%"/>
-        <col width="25%"/>
-        <col width="10%"/>
-        <col width="5%"/>
-        <col width="10%"/>
-        <col width="5%"/>
-        <thead>
-            <tr>
-                <th>$h_id</th>
-                <th>$h_preview</th>
-                <th>$h_title</th>
-                <th>$h_categories</th>
-                <th>$h_imagetag</th>
-                <th>$h_pagesfound</th>
-                <th>$h_size</th>
-                <th>$h_modified</th>
-                <th>$h_actions</th>
-            </tr>
-        </thead>
-        <tbody>
-
-        </tbody>
-        <tfoot>
-            <tr>
-                <th>$h_id</th>
-                <th>$h_preview</th>
-                <th>$h_title</th>
-                <th>$h_categories</th>
-                <th>$h_imagetag</th>
-                <th>$h_pagesfound</th>
-                <th>$h_size</th>
-                <th>$h_modified</th>
-                <th>$h_actions</th>
-            </tr>
-        </tfoot>
-</table>
-
-<script>
-    $(function(){
-
-
-
-    });
-
-</script>
-_END;
-
-        // return markup for output on admin page
-        return $actions->render() . $form->render() . $tmarkup;
 
     }
 
     /**
-    * getdata
-    * gets called by the datatable to recieve the table data
-    *
-    * @return string datatable object array
-    */
+     * Handle the main/default ImagesManager screen markup
+     *
+     * @return string output of the markup
+     */
+    public function execute() {
 
-    public function executeGetData() {
+        // if some post values sent
+        if(count($_POST)) $this->processInput();
 
-        $admin_url = $this->config->urls->admin;
-        $template = '';
-        $category = '';
-        $is_superuser = $this->user->isSuperuser();
-        $lang = $this->user->language;
+        // if an ajax request return results
+        if(wire("config")->ajax) return $this->renderResults();
 
-        // if category set
-        if(isset($this->input->get->filter_category)
-           && $this->input->get->filter_category != 'all'
-           && $this->input->get->filter_category != '') {
-            $category_id = (int) $this->sanitizer->selectorValue($this->input->get->filter_category);
-            $category_page = $this->pages->get("template=".$this->options['imagesCategoryTemplate'].",id=$category_id");
-            $category = "parent=" . $category_page . ",";
-            // save template filter in session
-            $this->session->categoryfilter = $this->input->get->filter_category;
-        } else {
-            $this->session->categoryfilter = $this->input->get->filter_category;
-        }
+        // set headline of IM admin page
+        $minfo = self::getModuleInfo();
+        $this->setFuel('processHeadline', $minfo['title']);
 
-        // extend selector string with access options
-        $selector = "{$category}include=all,";
+        $out = '';
+        if(!$this->modal) $out .= $this->buildActionsTab()->render();
+        $out .= $this->buildFiltersForm()->render();
+        $out .= "<div id='{$this->className()}List'>loading...</div>";
 
-        // if not superuser exclude admin pages and trash page
-        //if(!$is_superuser) $selector .= "template!=admin,template=poduct,has_parent!=2,id!=2|7,";
-        $selector .= 'template!=admin,template=' . $this->options['imagesPageTemplate'] . ',has_parent!=2,id!=2|7,';
+        return $out;
 
-        // search query
-        if( $this->input->get->sSearch ) {
-            $q = $this->sanitizer->text($this->input->get->sSearch);
-            // if(is_numeric($q) && strlen($q)){
-            //     $selector .= "id=$q,";
-            // } else {
-                if($this->options['imagesFieldName']){
-                    $selector .= "name|title|{$this->options['imagesFieldName']}.description";
-                }
-                if($this->templates->get($this->options['imagesPageTemplate'])->hasField($this->options['imagesDescriptionField'])){
-                    $selector .= "|{$this->options['imagesDescriptionField']}";
-                }
-                $selector .= "%=$q,";
-            // }
-
-        }
-
-        $sOrder = '';
-
-        if ( $this->input->get->iSortingCols > 0 ) {
-            for ( $i = 0 ; $i < intval( $this->input->get->iSortingCols ) ; $i++ ) {
-                if ( $this->input->get( "bSortable_$i" ) == true ) {
-                    $sort = '';
-                    $sort = $this->input->get( "sSortDir_$i" ) == 'asc' ? '-' : '' ;
-                    $sOrder .= "sort=".$sort.self::$columns[ intval( $this->input->get[ "iSortCol_$i" ] ) ] . ",";
-                } else {
-                    $sOrder = 'sort=-modified';
-                }
-            }
-            //$sOrder = substr( $sOrder, 0 , -1 );
-        } else {
-            $sOrder = 'sort=-modified';
-        }
-
-        $selector .= $sOrder;
-
-        // echo $selector;
-        // exit();
-
-        $pa = $this->pages->find($selector . 'parent!=/trash/,start=' . $_REQUEST['iDisplayStart'] . ',limit=' . $_REQUEST['iDisplayLength']);
-        $total = $pa->getTotal();
-        // if()$pa->sort("id");
-
-        $sOutput = '';
-        $sOutput .= '{"sEcho": '.intval($_GET['sEcho']).', ';
-        $sOutput .= '"iTotalRecords": '.$total.', ';
-        $sOutput .= '"iTotalDisplayRecords": '.$total.', ';
-        $sOutput .= '"aaData": [ ';
-
-
-        $json = array();
-        foreach($pa as $p) {
-
-            // get status'
-            $editable = $p->editable();
-            $unpublished = $p->is(Page::statusUnpublished);
-            $viewable = $p->viewable();
-
-            $sOutput .= "[";
-
-            /**
-             * page id
-             */
-            $sOutput .= '"'.$p->id.'",';
-
-            /**
-             * page image
-             */
-            $sOutput .= '"';
-            $imageUrl = '#';
-            $thumb = '#';
-            if($p->image->first){
-                $imageUrl = $p->image->first->url;
-                $thumb = $p->image->first->size(80,0)->url;
-            }
-            $sOutput .= "<a href='{$imageUrl}' class='fancybox'><img src='{$thumb}'/></a>";
-            $sOutput .= '",';
-
-            /**
-             * field title
-             */
-            $sOutput .= '"';
-            if($unpublished) $sOutput .= '<s>';
-            // if($editable) $sOutput .= '<a class=\"edit-modal fancybox.iframe\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'&modal=1\">';
-            if($editable) $sOutput .= "<a class='' href='{$admin_url}page/edit/?id={$p->id}'>";
-            $sOutput .= $p->title; //$p->get("title|name") ;
-            if($editable) $sOutput .= '</a>';
-            if($unpublished) $sOutput .= '</s>';
-            $sOutput .= '",';
-
-
-
-            /**
-             * categories and pages found image on
-             */
-            $sOutput .= '"';
-            $cats = "";
-            foreach($p->parents->slice(2) as $cat) $cats .= $cat->title . "," ;
-            $sOutput .= rtrim($cats,",");
-            $sOutput .= '",';
-
-            /**
-             * col image tag
-             */
-            $sOutput .= '"';
-            $sOutput .= "<div class='imagesmanager_tagfield_wrapper'><input type='tex' class='imagesmanager_tagfield' value='{image=$p->path, width=200, class=align_left}'/></div>";
-            $sOutput .= '",';
-
-            /**
-             * col date modified
-             */
-            //$sOutput .= '"'.date('Y-m-d H:i:s',$p->modified).'",';
-
-            /**
-             * col pages found
-             */
-            $sOutput .= '"';
-
-            $search_url = wire("config")->urls->admin . "page/search/";
-            $fieldsArray = $this->_convertFieldsIdToName($this->options['textareaFields']);
-            $fieldsSearchStr = implode("+", $fieldsArray);
-
-            $search_param = "?field={$fieldsSearchStr}";
-            $search_param .= "&q=image+{$p->id}";
-            $search_param .= "&operator=8";
-            $search_param .= "&show_options=1";
-            $search_param .= "&submit=Search";
-            $search_param .= "&sort=relevance";
-            $search_param .= "&display=title,path";
-
-            $sOutput .= "<a href='{$search_url}{$search_param}'>" . $this->_('search') . "</a>";
-
-            $sOutput .= '",';
-
-
-            /**
-             * col filesize
-             */
-            $sOutput .= '"';
-            $sOutput .= "<span style='white-space:nowrap;'>{$p->image->first()->filesizeStr}</span>";
-            $sOutput .= '",';
-
-            /**
-             * col modified
-             */
-            $sOutput .= '"';
-            $modified = date('d/m/Y H:i:s',$p->modified);
-            $sOutput .= "<span style='white-space:nowrap;'>{$modified}</span>";
-            $sOutput .= '",';
-
-            /**
-             * col edit modal link
-             */
-            $sOutput .= '"';
-            if($editable) $sOutput .= '<a class=\"edit-modal iframe\" href=\"'.$admin_url.'page/edit/?id='.$p->id.'&modal=1&iframe\">edit</a>&nbsp;';
-            if($viewable) $sOutput .= '<a href=\"http://'.$this->config->httpHost.$p->url.'\">view</a>&nbsp;';
-            $sOutput .= '"';
-
-            $sOutput .= "],";
-        }
-
-        //$sOutput .= json_encode($json);
-
-        $sOutput = substr( $sOutput, 0, -1 );
-        $sOutput .= '] }';
-
-        return $sOutput;
     }
 
+    /**
+     * Handle upload of images saved to a page
+     *
+     * @return string output of the markup
+     */
     public function executeUpload() {
 
         $this->config->js("im_alert_parentpage", $this->_("Please select a parent first."));
 
         $minfo = self::getModuleInfo();
-
         $this->fuel('breadcrumbs')->add(new Breadcrumb('../', $minfo['title']));
         $this->setFuel('processHeadline', $this->_('Upload New Images'));
 
@@ -451,7 +141,6 @@ _END;
         }
 
         $field = $this->modules->get('InputfieldSelect');
-        // $field = $this->modules->get('InputfieldPageListSelect');
         $field->label = $this->_('Select category');
         $field->required = 1;
         $field->description = $this->_('First select the category to want to upload images to.');
@@ -481,7 +170,6 @@ _END;
         $field->extensions = $image_field->extensions;
         $field->maxFiles = $this->options['maxFiles'];
         // make sure the value is of type Pageimages
-
         $field->attr("value", new Pageimages($this->page));
         $form->append($field);
 
@@ -564,7 +252,11 @@ _END;
 
     }
 
-
+    /**
+     * Handle the category add screen
+     *
+     * @return string markup output
+     */
     public function executeAddCategory(){
 
         $out = '';
@@ -654,6 +346,231 @@ _END;
         return $out;
     }
 
+
+    /**
+     * Set a Lister session variable
+     *
+     * @param string $key
+     * @param string|int $value
+     *
+     */
+    public function sessionSet($key, $value) {
+        $key = $this->page->name . "_" . $this->className() . "_" . $key;
+        if(is_null($value)) $this->session->remove($key);
+            else $this->session->set($key, $value);
+    }
+
+    /**
+     * Get a session variable
+     *
+     * @param string $key
+     * @return string|int|null
+     *
+     */
+    public function sessionGet($key) {
+        $key = $this->page->name . "_" . $this->className() . "_" . $key;
+        return $this->session->get($key);
+    }
+
+    /**
+     * Clear all session variables
+     *
+     */
+    public function sessionClear() {
+        $name = $this->page->name;
+        foreach($this->session as $key => $value) {
+            if(strpos($key, "{$name}_" . $this->className() . "_") === 0) $this->session->remove($key);
+        }
+    }
+
+    /**
+     * Process input for each filter var and save in session
+     *
+     */
+    protected function processInput() {
+        // save filter form in session
+        foreach($this->filters as $f){
+            $val = $this->sanitizer->text($this->input->post($f));
+            $this->sessionSet($f, $val);
+        }
+
+    }
+
+    /**
+     * Construct the selector for the search
+     * @return string selector string
+     */
+    public function getSelector(){
+
+        $selector = $this->selectorDefault;
+
+        foreach(wire("input")->post as $key => $value) {
+
+            $operator = "=";
+
+            if(wire("fields")->get($key)->type == 'FieldtypeText'){
+                $operator = "%=";
+            }
+            if(wire("fields")->get($key)->type == 'FieldtypeEmail'){
+                $operator = "%=";
+            }
+            if(wire("fields")->get($key)->type == 'FieldtypePage'){
+                if(!$value) continue;
+            }
+            if($key == 'name'){
+                if(!$value) continue;
+                $operator = "%=";
+            }
+            if($key == 'parent'){
+                $operator = "=";
+                if(!$value) {
+                    $value = $this->options['imagesRoot'];
+                    $key = "has_parent";
+                }
+            }
+            if($key == 'searchquery'){
+                $key = "title|{$this->options['imagesFieldName']}.description";
+                $tpl = $this->templates->get($this->options['imagesPageTemplate']);
+                if($tpl->hasField($this->options['imagesDescriptionField'])){
+                    $key .= "|{$this->options['imagesDescriptionField']}";
+                }
+                $operator = "%=";
+            }
+
+            if($key == 'sort'){
+                if($value == "-filesize" || $value == "filesize"){
+                    $value = "";
+                }
+            }
+
+            $selector .= ", $key{$operator}" . $value;
+        }
+
+        return $selector;
+    }
+
+    /**
+     * Render the results list
+     * @return string markup of the results
+     */
+    public function renderResults(){
+
+        $selector = $this->getSelector();
+
+        $out = '';
+        $stats = '';
+
+        $results = wire("pages")->find($selector);
+
+        if($results->count()){
+            $table = $this->buildTable($results);
+            $tableOut = $table->render();
+            $total = $results->getTotal();
+            $start = $results->getStart() + 1;
+            $end = $results->getStart() + $results->getLimit();
+            if($end > $total) $end = $total;
+            $stats = sprintf($this->_('Results: %1$s - %2$s of %3$s'), $start, $end, $total);
+        } else {
+            $tableOut = "<p class='ui-state-error'>&nbsp;" . $this->_("No images found...") . " </p>";
+        }
+
+        $pagerOut = $results->renderPager();
+
+        return $out . $stats . $pagerOut . $tableOut . $pagerOut . "<p class='im_selector'>Selector: $selector</p>";
+
+    }
+
+    /**
+     * Build the table results
+     * @param  PageArray $results found pages array
+     * @return InputfieldWrapper             table
+     */
+    public function buildTable(PageArray $results){
+
+        $table = $this->modules->get('MarkupAdminDataTable');
+        $table->setEncodeEntities(false);
+        $table->setSortable(false);
+
+        $header = array();
+        foreach($this->columns as $field => $settings){
+            $label = $settings[0];
+            $header[$field] = "$label<b>$field<b>";
+        }
+        $table->headerRow($header);
+
+        foreach($results as $res){
+
+            // get status'
+            $editable = $res->editable();
+            $unpublished = $res->is(Page::statusUnpublished);
+            $viewable = $res->viewable();
+
+            $values = array();
+            $res->of(false);
+
+            foreach($header as $field => $settings){
+
+                $value = '';
+
+                if($field == "actions") {
+                    if($editable){
+                        if($this->modal) $modal = "&modal=1";
+                        $value = "<a href='{$this->wire('config')->urls->admin}page/edit/?id=$res->id{$modal}'><span class='fa fa-edit'></span> Edit</a>";
+                    } else {
+                        $value = '';
+                    }
+                } else if($field == "modified") {
+                    $value = date($this->options['listerDateFormat'], $res->get($field));
+
+                } else if($field == "image"){
+                    $thumb = '#';
+                    if($res->image->count()){
+                        $imageUrl = $res->image->first->url;
+                        $thumb = $res->image->first->size(120,0)->url;
+                    }
+                    $value = "<a href='{$imageUrl}' class='im_magnific'><img src='{$thumb}'/></a>";
+
+                }  else if($field == "found"){
+
+                    $search_url = wire("config")->urls->admin . "page/search/";
+                    $fieldsArray = $this->_convertFieldsIdToName($this->options['textareaFields']);
+                    $fieldsSearchStr = implode("+", $fieldsArray);
+
+                    $search_param = "?field={$fieldsSearchStr}";
+                    $search_param .= "&q=image+{$res->id}";
+                    $search_param .= "&operator=8";
+                    $search_param .= "&show_options=1";
+                    $search_param .= "&submit=Search";
+                    $search_param .= "&sort=relevance";
+                    $search_param .= "&display=title,path";
+                    if($this->modal) $search_param .= "&modal=1";
+                    $value = "<a href='{$search_url}{$search_param}'>" . $this->_('search') . "</a>";
+
+                } else if($field == "imagetag") {
+                    $value = "<div class='imagesmanager_tagfield_wrapper'><input type='text' class='imagesmanager_tagfield' value='{image=$res->id, width=200, id=$res->id}'/></div>";
+
+                } else if($field == "title") {
+                    $value = "<b>$res->title</b> ";
+                    $value .= "<br/>{$res->image->first->filesizeStr}";
+                    $value .= ", " . $res->image->first->width . " x " . $res->image->first->height . "px";
+
+                } else if($field == "parent") {
+                    $value = "{$res->parent->path}";
+
+                } else {
+                    $value = $res->get($field);
+
+                }
+
+                $values[] = $value;
+            }
+            $table->row($values);
+        }
+
+        return $table;
+    }
+
+
     /**
      * Convert Array of field id to their names
      * @param  array  $fields   array of field id's
@@ -667,8 +584,89 @@ _END;
         return $namedArray;
     }
 
+    /**
+     * Actions fieldset with buttons to upload and add category
+     * using IntpufieldMarkup to add the buttons and render it in a fieldset
+     * this is easiest way to get floated buttons in one field
+     *
+     * @param  array  $fields   array of field id's
+     * @return array  InputfieldWrapper   fieldset
+     */
+    public function ___buildActionsTab() {
 
-    public function ___listCategoryTree($children,$field,$ind = '') {
+        $actions = $this->modules->get("InputfieldFieldset");
+        $markup = $this->modules->get("InputfieldMarkup");
+        $markup->label = $this->_("Create");
+
+        $field = $this->modules->get('InputfieldButton');
+        $field->attr('value',$this->_('Upload images'));
+        $field->attr('id','uploadimages');
+        $field->href = "./upload/{$this->modal}";
+        $markup->value .= $field->render();
+
+        $field = $this->modules->get('InputfieldButton');
+        $field->attr('value',$this->_('New category'));
+        $field->attr('id','addcategory');
+        $field->href = "./addcategory/{$this->modal}";
+        $markup->value .= $field->render();
+        $actions->add($markup);
+
+        return $actions;
+    }
+
+    /**
+     * Build the filters form object
+     * @return InputfieldForm form object
+     */
+    public function ___buildFiltersForm() {
+
+        $form = $this->modules->get('InputfieldForm');
+        $form->id = $this->className() . "Filter";
+        $form->method = 'get';
+        $form->action = "./{$this->modal}";
+
+        $fs = $this->modules->get("InputfieldFieldset");
+        $fs->label = "Filters";
+
+        $f = $this->modules->get('InputfieldHidden');
+        $f->attr('name', 'sort');
+        $f->attr('id', 'imagesmanager_sort');
+        $f->attr('value', $this->sessionGet("sort"));
+        $form->add($f);
+
+        $field = $this->modules->get('InputfieldSelect');
+        $field->attr('id+name', 'parent');
+        $field->skipLabel = true;
+        $field->label = $this->_("Category");
+        // $field->description = $this->_('Filter by category');
+        $field->addOption('', $this->_('All'));
+        $field->attr('value', $this->sessionGet("parent"));
+        $field->columnWidth = 50;
+        $field = $this->listCategoryTree($this->pages->get($this->options['imagesRoot'])->children, $field);
+        $fs->add($field);
+
+        $field = $this->modules->get("InputfieldText");
+        $field->attr("id+name", "searchquery");
+        $field->attr("value", $this->sessionGet("searchquery"));
+        // $field->description = $this->_('Search');
+        $field->label = $this->_("Search");
+        $field->skipLabel = true;
+        $field->columnWidth = 50;
+        $fs->add($field);
+
+        $form->add($fs);
+
+        return $form;
+    }
+
+    /**
+     * Build a category select
+     * @param  PageArray $children pages array of first level children
+     * @param  Field $field    the select field
+     * @param  string $ind      intendation string
+     * @return field           field object
+     */
+    public function ___listCategoryTree($children, $field, $ind = '') {
         $ind .= '—';
         foreach($children as $page) {
             // $countproducts = $this->pages->count("parent=$page,template=" . $this->options['imagesPageTemplate']);
@@ -682,6 +680,13 @@ _END;
         return $field;
     }
 
+    /**
+     * Method to hook into, if the field exists on image template
+     * it will save a simple exif data string
+     *
+     * @param  Page   $page the image page
+     * @param  string $file filename
+     */
     public function ___setMetaData(Page $page, $file) {
         // write exif data if field exists on page
         if($page->template->fieldgroup->hasField($this->options['imagesEXIFField'])) {
@@ -704,7 +709,6 @@ _END;
             $page->save();
         }
     }
-
 
     public function ___uninstall() {
         $page = $this->pages->get('template=admin, name=imagesmanager');
@@ -796,6 +800,26 @@ _END;
         $field->label = 'Max files';
         $field->description = 'Set the maximum files may uploaded using Images Manager.';
         $fields->append($field);
+
+
+        $field = $modules->get('InputfieldInteger');
+        $field->attr('name', 'listerLimit');
+        $field->attr('size', 10);
+        $field->attr('value', $data['listerLimit']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Limit per page';
+        $field->description = 'Set the limit for the result list.';
+        $fields->append($field);
+
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'listerDateFormat');
+        $field->attr('size', 10);
+        $field->attr('value', $data['listerDateFormat']);
+        $field->set('collapsed', Inputfield::collapsedBlank);
+        $field->label = 'Date format';
+        $field->description = 'Define the date format used in the result list for modification date. Use a simple digit based PHP date format string.';
+        $fields->append($field);
+
 
         return $fields;
     }

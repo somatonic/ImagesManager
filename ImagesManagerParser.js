@@ -1,45 +1,56 @@
 $(window).load(function(){
 
-    // $('#ParentPage').bind('pageSelected',function(e){
-    //     var parentID = $(this).val();
-    //     if(parentID != 0) {
-    //         $('#wrap_ImagesUpload').slideDown();
-    //     } else {
-    //         $('#wrap_ImagesUpload').slideUp();
-    //     }
-    // });
-
-
-    $(".imagesmanager_fancybox").each(function(){
-        var href = $(this).closest('a').attr('href');
-        var $link = $(this).closest('a');
-        $link.addClass("fancybox iframe").attr("href",href+"?modal=1");
-        $(this).unbind("click");
-
+    $(".imagesmanager-button").each(function(){
+        var $im_link_container = $(this);
+        var href = $(this).find('a').attr('href');
+        var $link = $(this).find('a');
+        var $button = $(this).find('button');
+        $button.unbind("click");
+        $link.addClass("lightbox iframe").attr("href", href+"?modal=1");
+        $im_link_container.closest(".InputfieldContent").find(".langTabs").append($im_link_container);
     });
 
-    var imagesManagerFancybox = function($link){
+    $('a.lightbox').on("click", function(e){
+
         var h = $(window).height()-65;
         var w = $(window).width() > 1150 ? 1150 : $(window).width()-100;
-        $link.fancybox({
-            hideOnContentClick: true,
-            centerOnScroll: false,
-            frameWidth: w,
-            frameHeight: h
-        }).trigger("click");
-    };
 
-    $('a.fancybox').on("mousedown", function(e){
         e.preventDefault();
         e.stopPropagation();
-        imagesManagerFancybox($(this));
+
+        $('body').css("overflow","hidden");
+
+        var modal_content = $("<div><iframe src='"+$(this).attr("href")+"' width='100%' height='98%' frameborder='0'></iframe></div>")
+        var im_dialog = modal_content.dialog({
+            autoOpen: true,
+            height: h,
+            width: w,
+            modal: true,
+            buttons: {
+                "Images Manager": function() {
+                    var $iframe_url = config.urls.admin + "imagesmanager/?modal=1";
+                    $(this).find("iframe").attr('src', $iframe_url);
+                },
+                "Upload images": function() {
+                    var $iframe_url = config.urls.admin + "imagesmanager/upload/?modal=1";
+                    $(this).find("iframe").attr('src', $iframe_url);
+                },
+                "New category": function() {
+                    var $iframe_url = config.urls.admin + "imagesmanager/addcategory/?modal=1";
+                    $(this).find("iframe").attr('src', $iframe_url);
+                }//,
+                // Ok: function() {
+                //     im_dialog.dialog( "close" );
+                // }
+            },
+            close: function() {
+                $('body').css("overflow","auto");
+            }
+        });
+
+        return false;
     });
 
-
-    $('.dataTable').on("mousedown","a.iframe", function(e){
-        e.preventDefault();
-        imagesManagerFancybox($(this));
-    });
 
 
 });

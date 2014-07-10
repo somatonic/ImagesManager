@@ -1,140 +1,122 @@
-var filter_category = '';
-var datatable;
-
-$(function(){
 
 
-    $("#filter_category").change(function() {
-        //$(this).parents("form").submit();
-        filter_category = $(this).val();
-        // refresh data table
-        datatable.fnDraw();
-    });
+;(function($){
 
-    if( $("#filter_category:selected") ){
-        filter_category = $("#filter_category option:selected").val();
-        // refresh data table
-        //datatable.fnDraw();
-    }
+    var ImagesManagerList = {
 
-    if($(".imagesManagerDataTable").size()){
-        var datatable = $('.imagesManagerDataTable').dataTable({
-            "sPaginationType": "full_numbers",
-            "bJQueryUI": true,
-            "bStateSave": true,
+        init: function(){
+            var that = this;
 
-            "oLanguage": {
-                "sProcessing": config.ImagesManager.sProcessing,
-                "sLengthMenu": config.ImagesManager.sLengthMenu,
-                "sZeroRecords": config.ImagesManager.sZeroRecords,
-                "sEmptyTable": config.ImagesManager.sEmptyTable,
-                "sInfo": config.ImagesManager.sInfo,
-                "sInfoEmpty": config.ImagesManager.sInfoEmpty,
-                "sInfoFiltered": config.ImagesManager.sInfoFiltered,
-                "sSearch" : config.ImagesManager.sSearch,
+            that.spinner = $("<li class='title' id='ProcessListerSpinner'><i class='fa fa-lg fa-spin fa-spinner'></i></li>");
+            $("#breadcrumbs ul.nav").append(that.spinner);
 
-                "oPaginate": {
-                "sFirst":    config.ImagesManager.sFirst,
-                "sPrevious": config.ImagesManager.sPrevious,
-                "sNext":     config.ImagesManager.sNext,
-                "sLast":     config.ImagesManager.sLast
-                    }
-                },
+            $("#ImagesManagerList").on('click', 'th', that.columnSort);
+            // $("#ProcessSEVMembersFilterForm").resizable({alsoResize: ".Inputfields",handles: "n, e, s, w"}).draggable();
 
-            "bProcessing": true,
-            "bServerSide": true,
-            "sAjaxSource": "getdata",
-            "aLengthMenu" : [[10,20,50,100, -1],[10,20,50,100,"All"]],
-            "fnServerData": function ( sSource, aoData, fnCallback ) {
-                // add filter template selection
-                aoData.push( { "name" : "filter_category", "value" : filter_category  } );
-                $.ajax( {
-                    "dataType": 'json',
-                    "type": "GET",
-                    "url": sSource,
-                    "data": aoData,
-                    "success": fnCallback
-                } );
-             },
-            "aoColumns": [
-                        { "bSortable": true },
-                        { "bSortable": false },
-                        { "bSortable": true },
-                        { "bSortable": true },
-                        { "bSortable": false },
-                        { "bSortable": false },
-                        { "bSortable": false },
-                        { "bSortable": true },
-                        { "bSortable": false }
-                    ]
+            $("#ImagesManagerFilter").on("change submit", function(e){
+                e.preventDefault();
+                that._submit();
+                // $(this).effect("bounce", {}, 500);
+                return false;
             });
 
-        $(".imagesManagerDataTable").delegate('a.edit-modal',"click", function(e){
-            e.preventDefault();
-            $.fancybox({
-                'type': 'iframe',
-                'href' : $(this).attr('href'),
-                'autoScale' : false,
-                'width' : "90%",
-                'height' : "90%",
-                'afterClose' : function(){
-                    var args = window.location.search ? window.location.search : '';
-                    document.location.href = "./" + args;
+            $("#ImagesManagerList").on('click', '.MarkupPagerNav a', function() {
+                var url = $(this).attr('href');
+                that._submit(url);
+                return false;
+            });
+
+
+            that._submit();
+        },
+
+        columnSort: function() {
+            var that = this;
+            $(this).find("span").remove();
+            var name = $(this).find('b').text();
+            var val = $("#imagesmanager_sort").val();
+
+            if(val == name) name = '-' + name; // reverse
+            if(name.length < 1) name = val;
+            $("#imagesmanager_sort").val(name);
+
+            ImagesManagerList._submit();
+        },
+
+        _submit: function(url){
+            var that = this;
+
+            url = url ? url : $("#ImagesManagerFilter").attr("action");
+            $.ajax({
+                url: url,
+                type: "post",
+                data:
+                    // sort: $("#lister_sort").val(),
+                    $("#ImagesManagerFilter").serialize()
+                ,
+                beforeSend: function(){
+                    that.spinner.show();
+                    $("#ImagesManagerList").animate({"opacity":"0.5"},100);
+                },
+                success: function(data){
+                    var sort = $("#imagesmanager_sort").val();
+                    $("#ImagesManagerList").html(data).find("th").each(function() {
+                        var $b = $(this).find('b');
+                        var txt = $b.text();
+                        $b.remove();
+                        $(this).find('span').remove();
+                        var label = $(this).text();
+                        if(txt == sort) {
+                            $(this).html("<u>" + label + "</u><span>&nbsp;&darr;</span><b>" + txt + "</b>");
+                        } else if(sort == '-' + txt) {
+                            $(this).html("<u>" + label + "</u><span>&nbsp;&uarr;</span><b>" + txt + "</b>");
+                        } else {
+                            $(this).html(label + "<b>" + txt + "</b>");
+                        }
+                    });
+                    that.spinner.hide();
+                    $("#ImagesManagerList").animate({"opacity":"1"},100);
                 }
             });
 
-        });
-
-        var imagesManagerFancybox = function($link){
-            var h = $(window).height()-65;
-            var w = $(window).width() > 1150 ? 1150 : $(window).width()-100;
-            $link.fancybox({
-                hideOnContentClick: true,
-                centerOnScroll: false,
-                frameWidth: w,
-                frameHeight: h
-            }).trigger("click");
-        };
-
-        $('.imagesManagerDataTable').on("click","a.fancybox", function(e){
-            e.preventDefault();
-            imagesManagerFancybox($(this));
-        });
-
-        $('.imagesManagerDataTable').on("click",".imagesmanager_tagfield", function(e){
-            $(this).select();
-        });
-
-    }
+        }
+    };
 
 
-    if($('#ImagesManagerUploadForm').size()){
 
-        $('#ImagesManagerUploadForm').on("submit", function(e){
-            var ParentPageField = $(this).find("select[name='ParentPage']");
-            if(ParentPageField.val() == ""){
-                alert(config.im_alert_parentpage);
-                ParentPageField.focus();
-                return false;
-            } else {
-                return true;
-            }
-            e.preventDefault();
-        });
+    $(function(){
 
-        /**
-         * Workaround for ProcessPageList.js not working with inputfield dependencies
-         * change() event getting triggered before value set.
-         * Fixed in PW: https://github.com/ryancramerdesign/ProcessWire/pull/469
-         */
-        //$("#Inputfield_ParentPage").attr("style","display: block!important;");
-        // $("#Inputfield_ParentPage").on("change",function() {
-        //     var that = $(this);
-        //     alert($(this).val());
-        //     // setTimeout(function(){
-        //     //     that.trigger("change");
-        //     // }, 300);
-        // });
+        if($("#ImagesManagerList").length) {
 
-    }
-});
+            ImagesManagerList.init();
+
+            $('#ImagesManagerList').on('click', 'a.im_magnific', function(e){
+                e.preventDefault();
+                $.magnificPopup.open({
+                    type:'image',
+                    items: {
+                        src: $(this).attr("href")
+                    }
+                }, 0);
+
+            });
+
+            $('#ImagesManagerList').on("click",".imagesmanager_tagfield", function(e){
+                $(this).select();
+                var tdwrapper = $(this).closest('.imagesmanager_tagfield_wrapper');
+                $(this).closest('td').css('width', tdwrapper.width() + 10 + 'px');
+                $(this).addClass('selected');
+                $(this).css('width', $(this).closest("table").width() / 2.5 + 'px');
+
+            });
+            $('#ImagesManagerList').on("blur",".imagesmanager_tagfield", function(e){
+                $(this).removeClass('selected');
+                $(this).css('width', "auto");
+            });
+        }
+
+
+    });
+
+
+})(jQuery);

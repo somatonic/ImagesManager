@@ -1,4 +1,4 @@
-## Images Manager 0.0.7 alpha
+## Images Manager 0.1.0
 
 This module allows you to manage images from one central repository. You create a root page "/images/" where you can then add categories and images as pages. From there the new admin page created "ImagesManager" will show categories and images added in a ajax data table, from where you can see and search/filter all images, upload and create new categories and edit images too.
 
@@ -8,9 +8,9 @@ Every image will also show an image tag generated to copy into a textarea. This 
 
 The width setting is the thumbnail size used to output the image.
 
-You can also have additional segment to contain classes:
+You can also have additional settings to contain class, rel or id:
 
-`{image=/path/to/image/imagename/, width=100, class=align_left}`
+`{image=/path/to/image/imagename/, width=100, class=align_left, id=myimage}`
 
 Or you can enter the id directly:
 
