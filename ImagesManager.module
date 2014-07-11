@@ -424,11 +424,12 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
             if($key == 'parent'){
                 $operator = "=";
                 if(!$value) {
-                    $value = $this->options['imagesRoot'];
+                    $value = $this->pages->get($this->options['imagesRoot'])->id;
                     $key = "has_parent";
                 }
             }
             if($key == 'searchquery'){
+                if(!$value) continue;
                 $key = "title|{$this->options['imagesFieldName']}.description";
                 $tpl = $this->templates->get($this->options['imagesPageTemplate']);
                 if($tpl->hasField($this->options['imagesDescriptionField'])){
@@ -438,8 +439,9 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
             }
 
             if($key == 'sort'){
+                if(!$value) continue;
                 if($value == "-filesize" || $value == "filesize"){
-                    $value = "";
+                    continue;
                 }
             }
 
