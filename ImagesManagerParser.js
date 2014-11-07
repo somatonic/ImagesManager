@@ -28,15 +28,15 @@ $(window).load(function(){
             modal: true,
             buttons: {
                 "Images Manager": function() {
-                    var $iframe_url = config.urls.admin + "imagesmanager/?modal=1";
+                    var $iframe_url = config.images_manager.url + "?modal=1";
                     $(this).find("iframe").attr('src', $iframe_url);
                 },
                 "Upload images": function() {
-                    var $iframe_url = config.urls.admin + "imagesmanager/upload/?modal=1";
+                    var $iframe_url = config.images_manager.url + "upload/?modal=1";
                     $(this).find("iframe").attr('src', $iframe_url);
                 },
                 "New category": function() {
-                    var $iframe_url = config.urls.admin + "imagesmanager/addcategory/?modal=1";
+                    var $iframe_url = config.images_manager.url + "addcategory/?modal=1";
                     $(this).find("iframe").attr('src', $iframe_url);
                 }//,
                 // Ok: function() {

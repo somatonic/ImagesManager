@@ -86,6 +86,27 @@
 
     $(function(){
 
+        if($("#ImagesManagerUploaded").length) {
+
+            // url = url ? url : $("#ImagesManagerFilter").attr("action");
+            // var data = $("#ImagesManagerUploaded").data("images");
+            // $.ajax({
+            //     url: config.imagemanager.url,
+            //     type: "post",
+            //     data: { images: $("#ImagesManagerUploaded").data("images") },
+            //     beforeSend: function(){
+            //         that.spinner.show();
+            //         $("#ImagesManagerList").animate({"opacity":"0.5"},100);
+            //     },
+            //     success: function(data){
+            //         that.spinner.hide();
+            //         $("#ImagesManagerList").html(data);
+            //     }
+
+        }
+
+
+
         if($("#ImagesManagerList").length) {
 
             ImagesManagerList.init();
@@ -101,6 +122,8 @@
 
             });
 
+
+
             $('#ImagesManagerList').on("click",".imagesmanager_tagfield", function(e){
                 $(this).select();
                 var tdwrapper = $(this).closest('.imagesmanager_tagfield_wrapper');
@@ -115,6 +138,18 @@
             });
         }
 
+
+        $('#ImagesManagerList').on('click', 'a.im_edit', function(e){
+            e.preventDefault();
+            var href = $(this).attr("href");
+            $.magnificPopup.open({
+                type:'iframe',
+                items: {
+                    src: href
+                }
+            }, 0);
+
+        });
 
     });
 

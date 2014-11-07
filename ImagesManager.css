@@ -63,4 +63,9 @@
     opacity: 0.4;
 }
 
+#ImagesManagerUploadForm .InputfieldFileUpload .AjaxUploadDropHere {
+    display: none!important;
+
+}
+
 

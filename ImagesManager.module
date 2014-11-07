@@ -27,7 +27,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         return array(
             'title' => 'Images Manager',
             'summary' => 'Manage and search images from one resource tree. Upload images and create new categories.',
-            'version' => 10,
+            'version' => 11,
             'href' => '',
             'author' => 'Soma',
             'installs' => array('ImagesManagerParser'),
@@ -73,6 +73,8 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         if($this->input->get->modal) {
             $this->input->whitelist("modal", $this->input->get->modal);
         }
+
+        $this->config->js("imagemanager", (object) array("url" => $this->page->url));
 
         $this->modules->MarkupAdminDataTable;
         $this->modules->JqueryMagnific;
@@ -127,6 +129,17 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         $this->setFuel('processHeadline', $this->_('Upload New Images'));
 
         $out = "";
+
+        // show uploaded images if get present
+
+        if($this->input->get->uploaded){
+            $imageIDs = $this->pages->find("id={$this->input->get->uploaded}");
+            if($imageIDs->count()) {
+                $out .= "<div id='ImagesManagerUploaded' data-images='$imageIDs'><h2>Uploaded Images</h2>";
+                $out .= $this->buildTable($imageIDs)->render();
+                $out .= "</div>";
+            }
+        }
 
         $form = $this->modules->get('InputfieldForm');
         $form->action = './';
@@ -207,6 +220,9 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
             if(!count($form->getErrors()) && !$errors) {
                 // save uploaded files to new page and remove temp files
                 $files = explode('|',$form->get('ImagesUpload')->value);
+
+                $uploadedImages = new PageArray();
+
                 foreach($files as $file){
                     // if($file && file_exists($this->upload_path . $file)){
                     if($file && file_exists($this->page->filesManager->path . $file)){
@@ -227,11 +243,14 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
                         $imagepage->get($this->options['imagesFieldName'])->add($img);
                         unlink($this->page->filesManager->path . $file);
                         $imagepage->save();
+                        $uploadedImages->add($imagepage);
                     }
                 }
                 // redirect to the form
-                $this->session->redirect($this->page->url . "upload/");
-
+                $this->session->redirect($this->page->url . "upload/?uploaded=$uploadedImages");
+                // $out .= $this->buildTable($uploadedImages)->render();
+                // return $out;
+                //
             } else {
                 // remove uploaded files in case of an error processing the form
                 $files = explode('|',$form->get('ImagesUpload')->value);
@@ -251,6 +270,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         return $out;
 
     }
+
 
     /**
      * Handle the category add screen
@@ -430,12 +450,18 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
             }
             if($key == 'searchquery'){
                 if(!$value) continue;
-                $key = "title|{$this->options['imagesFieldName']}.description";
-                $tpl = $this->templates->get($this->options['imagesPageTemplate']);
-                if($tpl->hasField($this->options['imagesDescriptionField'])){
-                    $key .= "|{$this->options['imagesDescriptionField']}";
+                if(is_numeric($value)){
+                    $key = "id";
+                    $operator = "=";
+                } else {
+                    $key = "title|{$this->options['imagesFieldName']}.description";
+                    $tpl = $this->templates->get($this->options['imagesPageTemplate']);
+                    if($tpl->hasField($this->options['imagesDescriptionField'])){
+                        $key .= "|{$this->options['imagesDescriptionField']}";
+                    }
+                    $operator = "%=";
                 }
-                $operator = "%=";
+
             }
 
             if($key == 'sort'){
@@ -506,7 +532,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
             $editable = $res->editable();
             $unpublished = $res->is(Page::statusUnpublished);
             $viewable = $res->viewable();
-
+            $this->modal = 1;
             $values = array();
             $res->of(false);
 
@@ -517,7 +543,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
                 if($field == "actions") {
                     if($editable){
                         if($this->modal) $modal = "&modal=1";
-                        $value = "<a href='{$this->wire('config')->urls->admin}page/edit/?id=$res->id{$modal}'><span class='fa fa-edit'></span> Edit</a>";
+                        $value = "<a class='im_edit' href='{$this->wire('config')->urls->admin}page/edit/?id=$res->id{$modal}'><span class='fa fa-edit'></span> Edit</a>";
                     } else {
                         $value = '';
                     }
@@ -549,7 +575,8 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
                     $value = "<a href='{$search_url}{$search_param}'>" . $this->_('search') . "</a>";
 
                 } else if($field == "imagetag") {
-                    $value = "<div class='imagesmanager_tagfield_wrapper'><input type='text' class='imagesmanager_tagfield' value='{image=$res->id, width=200, id=$res->id}'/></div>";
+                    // $value = "<div class='imagesmanager_tagfield_wrapper'><input type='text' class='imagesmanager_tagfield' value='{image=$res->id, width=200, id=$res->id}'/></div>";
+                    $value = "<div class='imagesmanager_tagfield_wrapper'><input type='text' class='imagesmanager_tagfield' value='[[bild id=$res->id, ausrichtung=links, breite=halb]]'/></div>";
 
                 } else if($field == "title") {
                     $value = "<b>$res->title</b> ";
@@ -596,6 +623,9 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
      */
     public function ___buildActionsTab() {
 
+        $moduleID = $this->modules->getModuleID("ImagesManager");
+        $moduleUrl = $this->pages->get("template=admin, process=$moduleID")->url;
+
         $actions = $this->modules->get("InputfieldFieldset");
         $markup = $this->modules->get("InputfieldMarkup");
         $markup->label = $this->_("Create");
@@ -603,13 +633,13 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         $field = $this->modules->get('InputfieldButton');
         $field->attr('value',$this->_('Upload images'));
         $field->attr('id','uploadimages');
-        $field->href = "./upload/{$this->modal}";
+        $field->href = $moduleUrl . "upload/{$this->modal}";
         $markup->value .= $field->render();
 
         $field = $this->modules->get('InputfieldButton');
         $field->attr('value',$this->_('New category'));
         $field->attr('id','addcategory');
-        $field->href = "./addcategory/{$this->modal}";
+        $field->href = $moduleUrl . "./addcategory/{$this->modal}";
         $markup->value .= $field->render();
         $actions->add($markup);
 
@@ -672,7 +702,7 @@ class ImagesManager extends Process implements Module, ConfigurableModule {
         $ind .= '—';
         foreach($children as $page) {
             // $countproducts = $this->pages->count("parent=$page,template=" . $this->options['imagesPageTemplate']);
-            $countproducts = $page->children("template=" . $this->options['imagesPageTemplate'])->count();
+            $countproducts = wire("pages")->count("parent=$page, template=" . $this->options['imagesPageTemplate']);
             $field->addOption($page->id, " " . $ind . " " . $page->title ." ($countproducts)");
             $children = $page->children('template=' . $this->options['imagesCategoryTemplate']);
             if(count($children)) {

@@ -27,7 +27,7 @@ class ImagesManagerParser extends WireData implements Module {
 
         return array(
             'title' => 'Images Manager Parser',
-            'version' => 10,
+            'version' => 11,
             'summary' => 'Add ImagesManager button to textarea fields defined in ImagesManager module, parses textarea to abstracts image tags saved in DB.',
             'href' => '',
             'author' => 'Soma',
@@ -43,12 +43,16 @@ class ImagesManagerParser extends WireData implements Module {
         $this->options = $options;
 
         // add hook to replace image tags to id tags and back
-        if(strpos($_SERVER['REQUEST_URI'], $this->config->urls->admin) !== false){
-            $this->addHookAfter('FieldtypeTextarea::wakeupValue', $this, 'wakeupValue');
-            $this->addHookBefore('FieldtypeTextarea::sleepValue', $this, 'sleepValue');
+        if(isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], $this->config->urls->admin) !== false){
+
+            // $this->addHookAfter('FieldtypeTextarea::wakeupValue', $this, 'wakeupValue');
+            // $this->addHookBefore('FieldtypeTextarea::sleepValue', $this, 'sleepValue');
 
             $this->addHookBefore('InputfieldTextarea::render', $this, 'addScripts');
             $this->addHookAfter('InputfieldTextarea::render', $this, 'addImagesManager');
+
+            // for the SelectImages fieldtype only
+            // $this->addHookAfter('InputfieldImagesSelect::render', $this, 'addImagesManagerCustom');
 
         } else {
             $this->addHookAfter('Page::render', $this, 'renderPage');
@@ -76,6 +80,29 @@ class ImagesManagerParser extends WireData implements Module {
         if(!$this->fields->get($inputfield->name)) return;
         if(!in_array($this->fields->get($inputfield->name)->id, $this->options['textareaFields'])) return;
 
+        $moduleID = $this->modules->getModuleID("ImagesManager");
+
+        $href = $this->pages->get("template=admin, process=$moduleID")->url;
+        $btn = $this->modules->get('InputfieldButton');
+        $btn->href = $href;
+        $btn->attr('id','imagesmanager_' . $inputfield->name);
+        $btn->value = $this->_('Images Manager');
+
+        $event->return = str_replace($event->return, $event->return . "<div class='im-widget imagesmanager-button'>{$btn->render()}</div>", $event->return);
+
+        // add js config for urls to images manager admin page used in jquery modals
+        $this->config->js("images_manager", array("url" => $this->pages->get("template=admin, process=$moduleID")->url));
+
+    }
+
+
+    public function addImagesManagerCustom(HookEvent $event) {
+
+        $inputfield = $event->object;
+        $fieldset = $event->return;
+
+        if(!$this->user->isSuperuser() && !$this->user->hasPermission("images-manager")) return;
+
         $href = $this->pages->get(2)->find('name=imagesmanager,include=all')->first()->url;
         $btn = $this->modules->get('InputfieldButton');
         $btn->href = $href;
@@ -84,6 +111,9 @@ class ImagesManagerParser extends WireData implements Module {
 
         $event->return = str_replace($event->return, $event->return . "<div class='im-widget imagesmanager-button'>{$btn->render()}</div>", $event->return);
 
+        // add js config for urls to images manager admin page used in jquery modals
+        $moduleID = $this->modules->getModuleID("ImagesManager");
+        $this->config->js("images_manager", array("url" => $this->pages->get("template=admin, process=$moduleID")->url));
     }
 
     public function wakeupValue(HookEvent $event) {
